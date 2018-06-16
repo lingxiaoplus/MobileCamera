@@ -1,6 +1,7 @@
 package com.camera.lingxiao.camerademo;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
@@ -10,6 +11,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.io.IOException;
@@ -27,16 +30,43 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     private SurfaceHolder mHolder;
     private int mCamerId = 0;
     private Camera mCamera;
-
+    private ImageView localImg,shutterImg,changeImg;
+    private CameraUtil mCameraUtil;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         mSurfaceView = findViewById(R.id.surfaceView);
+        localImg = findViewById(R.id.iv_local);
+        shutterImg = findViewById(R.id.iv_shutter);
+        changeImg = findViewById(R.id.iv_change);
         mHolder = mSurfaceView.getHolder();
         methodRequiresTwoPermission();
 
+
+        changeImg.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (null != mCameraUtil){
+                    mCameraUtil.changeCamera(mHolder);
+                }
+            }
+        });
+
+        localImg.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+            }
+        });
+
+        shutterImg.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+            }
+        });
     }
 
 
@@ -88,6 +118,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         public void surfaceCreated(SurfaceHolder holder) {
             try {
                 mCamera = Camera.open(mCamerId);
+                mCameraUtil = new CameraUtil(mCamera,mCamerId);
             }catch (Exception e){
                 LogUtil.i("摄像头被占用");
                 e.printStackTrace();
@@ -97,7 +128,10 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         @Override
         public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
             try {
-                initCamera(mSurfaceView.getWidth(),mSurfaceView.getHeight());
+                mCameraUtil
+                        .initCamera(mSurfaceView.getWidth(),
+                                mSurfaceView.getHeight(),
+                                MainActivity.this);
                 mCamera.setPreviewDisplay(holder);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -106,25 +140,9 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
         @Override
         public void surfaceDestroyed(SurfaceHolder holder) {
-            CameraUtil.getInstance(mCamera,mCamerId).stopPreview();
+            if (null != mCameraUtil){
+                mCameraUtil.stopPreview();
+            }
         }
-    }
-
-    private void initCamera(int width,int height){
-        Camera.Parameters parameters = mCamera.getParameters();
-        parameters.setPreviewFormat(ImageFormat.NV21);
-        //根据设置的宽高 和手机支持的分辨率对比计算出合适的宽高算法
-        Camera.Size optionSize = CameraUtil
-                .getInstance(mCamera, mCamerId)
-                .getOptimalPreviewSize(width, height);
-        parameters.setPreviewSize(optionSize.width, optionSize.height);
-        //设置照片尺寸
-        parameters.setPictureSize(optionSize.width, optionSize.height);
-        //设置实时对焦 部分手机不支持会crash
-        parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-        mCamera.setParameters(parameters);
-        CameraUtil.getInstance(mCamera,mCamerId).setCameraDisplayOrientation(this);
-        //开启预览
-        mCamera.startPreview();
     }
 }

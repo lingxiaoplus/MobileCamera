@@ -1,39 +1,67 @@
 package com.camera.lingxiao.camerademo;
 
 import android.app.Activity;
+import android.content.Context;
+import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.hardware.Camera;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
+import java.lang.ref.Reference;
 import java.util.List;
 
 public class CameraUtil {
-    private static int mOrienta = 0;//时针旋转的角度
-    private static int mAngle = 0;//需要顺时针旋转的角度
-    private static Camera mCamera;
-    private static int mCameraId = 0;   //默认后置摄像头
-    private static CameraUtil mCameraUtil;
+    private  int mOrienta = 0;//时针旋转的角度
+    private  int mAngle = 0;//需要顺时针旋转的角度
+    private  Camera mCamera;
+    private  int mCameraId = 0;   //默认后置摄像头
     private Matrix mMatrix;
-    private CameraUtil(){
-
-    }
-
-    public static CameraUtil getInstance(Camera camera,int cameraId){
+    private int mWidth,mHeight;
+    private Activity mActivity;
+    public CameraUtil(Camera camera,int cameraId){
         mCamera = camera;
         mCameraId = cameraId;
-        if (mCameraUtil == null){
-            mCameraUtil = new CameraUtil();
-        }
-        return mCameraUtil;
     }
+
+    /**
+     * 初始化相机
+     * @param width
+     * @param height
+     */
+    public void initCamera(int width,int height,Activity activity){
+        this.mWidth = width;
+        this.mHeight = height;
+        this.mActivity = activity;
+        Camera.Parameters parameters = mCamera.getParameters();
+        parameters.setPreviewFormat(ImageFormat.NV21);
+        //根据设置的宽高 和手机支持的分辨率对比计算出合适的宽高算法
+        Camera.Size optionSize = getOptimalPreviewSize(width, height);
+        parameters.setPreviewSize(optionSize.width, optionSize.height);
+        //设置照片尺寸
+        parameters.setPictureSize(optionSize.width, optionSize.height);
+        //设置实时对焦 部分手机不支持会crash
+        parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+        mCamera.setParameters(parameters);
+        setCameraDisplayOrientation(activity);
+        //开启预览
+        mCamera.startPreview();
+
+        mCamera.takePicture(null, null, new Camera.PictureCallback() {
+            @Override
+            public void onPictureTaken(byte[] data, Camera camera) {
+
+            }
+        });
+    }
+
     /**
      * 得到摄像头默认旋转角度后，旋转回来  注意是逆时针旋转
      *
      * @param activity
      */
-    public void setCameraDisplayOrientation(Activity activity) {
+    private void setCameraDisplayOrientation(Activity activity) {
         Camera.CameraInfo info = new Camera.CameraInfo();
         Camera.getCameraInfo(mCameraId, info);
         int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
@@ -158,7 +186,7 @@ public class CameraUtil {
                     mCameraId = 1;
                     try {
                         mCamera.setPreviewDisplay(holder);
-                        //initCamera();
+                        initCamera(mWidth,mHeight,mActivity);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -182,7 +210,7 @@ public class CameraUtil {
                     mCameraId = 0;
                     try {
                         mCamera.setPreviewDisplay(holder);
-                        //initCamera();
+                        initCamera(mWidth,mHeight,mActivity);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
