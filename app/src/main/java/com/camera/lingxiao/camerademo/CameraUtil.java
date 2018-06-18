@@ -1,43 +1,60 @@
 package com.camera.lingxiao.camerademo;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.hardware.Camera;
+import android.media.MediaRecorder;
+import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
+import android.widget.Toast;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.ref.Reference;
 import java.util.List;
 
 public class CameraUtil {
-    private  int mOrienta = 0;//时针旋转的角度
-    private  int mAngle = 0;//需要顺时针旋转的角度
-    private  Camera mCamera;
-    private  int mCameraId = 0;   //默认后置摄像头
+    private int mOrienta = 0;//时针旋转的角度
+    private int mAngle = 0;//需要顺时针旋转的角度
+    private Camera mCamera;
+    private int mCameraId = 0;   //默认后置摄像头
     private Matrix mMatrix;
-    private int mWidth,mHeight;
+    private int mWidth, mHeight;
     private Activity mActivity;
-    public CameraUtil(Camera camera,int cameraId){
+    private String mPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+    private String mFileName; //照片名字
+    private String mFileDir; //照片目录
+    private MediaRecorder mediaRecorder;
+    private int defaultVideoFrameRate = 30; //视频默认帧率 无法设置
+    private boolean mInitCameraResult;  //相机是否初始化成功
+
+    public CameraUtil(Camera camera, int cameraId) {
         mCamera = camera;
         mCameraId = cameraId;
     }
 
     /**
      * 初始化相机
+     *
      * @param width
      * @param height
      */
-    public void initCamera(int width,int height,Activity activity){
-        this.mWidth = width;
-        this.mHeight = height;
-        this.mActivity = activity;
+    public void initCamera(int width, int height, Activity activity) {
+        mActivity = activity;
         Camera.Parameters parameters = mCamera.getParameters();
         parameters.setPreviewFormat(ImageFormat.NV21);
         //根据设置的宽高 和手机支持的分辨率对比计算出合适的宽高算法
         Camera.Size optionSize = getOptimalPreviewSize(width, height);
+        mWidth = optionSize.width;
+        mHeight = optionSize.height;
+
         parameters.setPreviewSize(optionSize.width, optionSize.height);
         //设置照片尺寸
         parameters.setPictureSize(optionSize.width, optionSize.height);
@@ -48,12 +65,25 @@ public class CameraUtil {
         //开启预览
         mCamera.startPreview();
 
-        mCamera.takePicture(null, null, new Camera.PictureCallback() {
-            @Override
-            public void onPictureTaken(byte[] data, Camera camera) {
 
+        //1.设置回调:系统相机某些核心部分不走JVM,进行特殊优化，所以效率很高
+        mCamera.setPreviewCallbackWithBuffer(new Camera.PreviewCallback() {
+            @Override
+            public void onPreviewFrame(byte[] datas, Camera camera) {
+                //回收缓存处理
+                camera.addCallbackBuffer(datas);
+                if (null != mPreviewCallback) {
+                    mPreviewCallback.onPreviewFrame(datas, camera);
+                    if (mOrienta != 0) {
+                        //说明有旋转角度
+                    }
+                }
             }
         });
+        //2.增加缓冲区buffer: 这里指定的是yuv420sp格式
+        mCamera.addCallbackBuffer(new byte[((width * height) *
+                ImageFormat.getBitsPerPixel(ImageFormat.NV21)) / 8]);
+        mInitCameraResult = true;
     }
 
     /**
@@ -91,6 +121,7 @@ public class CameraUtil {
         mOrienta = result;//该值有其它用途
         mCamera.setDisplayOrientation(result);
     }
+
     /**
      * 相机设置旋转后，预览图片和相机返回实时流角度
      * 这个是顺时针旋转
@@ -113,11 +144,13 @@ public class CameraUtil {
                 break;
         }
     }
+
     /**
      * 通过传入的宽高  计算出最接近相机支持的宽高
+     *
      * @param w
      * @param h
-     * @return  返回一个Camera.Size类型 通过setPreviewSize设置给相机
+     * @return 返回一个Camera.Size类型 通过setPreviewSize设置给相机
      */
     public Camera.Size getOptimalPreviewSize(int w, int h) {
 
@@ -158,6 +191,7 @@ public class CameraUtil {
 
     /**
      * 切换前后摄像头
+     *
      * @param holder
      */
     public void changeCamera(SurfaceHolder holder) {
@@ -176,19 +210,14 @@ public class CameraUtil {
                     mCamera.release();//释放资源
                     mCamera = null;//取消原来摄像头
                     mCamera = Camera.open(i);//打开当前选中的摄像头
-                    /*try {
-                        camera.setPreviewDisplay(holder);//通过surfaceview显示取景画面
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    setCameraDisplayOrientation(this, i, camera);
-                    camera.startPreview();//开始预览*/
                     mCameraId = 1;
+
                     try {
                         mCamera.setPreviewDisplay(holder);
-                        initCamera(mWidth,mHeight,mActivity);
+                        initCamera(mWidth, mHeight, mActivity);
                     } catch (Exception e) {
                         e.printStackTrace();
+                        mInitCameraResult = false;
                     }
                     break;
                 }
@@ -199,20 +228,14 @@ public class CameraUtil {
                     mCamera.release();//释放资源
                     mCamera = null;//取消原来摄像头
                     mCamera = Camera.open(i);//打开当前选中的摄像头
-                    /*try {
-                        camera.setPreviewDisplay(holder);//通过surfaceview显示取景画面
-                    } catch (IOException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
-                    setCameraDisplayOrientation(this, i, camera);
-                    camera.startPreview();//开始预览*/
                     mCameraId = 0;
+
                     try {
                         mCamera.setPreviewDisplay(holder);
-                        initCamera(mWidth,mHeight,mActivity);
+                        initCamera(mWidth, mHeight, mActivity);
                     } catch (Exception e) {
                         e.printStackTrace();
+                        mInitCameraResult = false;
                     }
                     break;
                 }
@@ -220,11 +243,179 @@ public class CameraUtil {
         }
     }
 
-    public void stopPreview(){
+    @SuppressLint("NewApi")
+    public boolean initRecorder(String filePath, SurfaceHolder holder) {
+
+        if (!mInitCameraResult) {
+            LogUtil.i("相机未初始化成功");
+            return false;
+        }
+        try {
+            // TODO init button
+            //mCamera.stopPreview();
+            mediaRecorder = new MediaRecorder();
+            mCamera.unlock();
+            mediaRecorder.setCamera(mCamera);
+            if (mCameraId == 1) {
+                mediaRecorder.setOrientationHint(270);
+            } else {
+                mediaRecorder.setOrientationHint(90);
+            }
+
+            // 这两项需要放在setOutputFormat之前,设置音频和视频的来源
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);//摄录像机
+            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);//相机
+
+            // 设置录制完成后视频的封装格式THREE_GPP为3gp.MPEG_4为mp4
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            //这两项需要放在setOutputFormat之后  设置编码器
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            // 设置录制的视频编码h263 h264
+            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+            // 设置视频录制的分辨率。必须放在设置编码和格式的后面，否则报错
+            mediaRecorder.setVideoSize(mWidth, mHeight);
+            // 设置视频的比特率 (清晰度)
+            mediaRecorder.setVideoEncodingBitRate(3 * 1024 * 1024);
+            // 设置录制的视频帧率。必须放在设置编码和格式的后面，否则报错
+            /*if (defaultVideoFrameRate != -1) {
+                mediaRecorder.setVideoFrameRate(defaultVideoFrameRate);
+            }*/
+            // 设置视频文件输出的路径 .mp4
+            mediaRecorder.setOutputFile(filePath);
+            mediaRecorder.setMaxDuration(30000);
+            mediaRecorder.setPreviewDisplay(holder.getSurface());
+            mediaRecorder.prepare();
+
+            mediaRecorder.start();  //开始
+        } catch (Exception e) {
+            e.printStackTrace();
+            stopPreview();
+            return false;
+        }
+        return true;
+    }
+
+
+    public void stopRecorder() {
+        if (mediaRecorder != null) {
+            mediaRecorder.stop();
+            mediaRecorder.release();
+            mediaRecorder = null;
+            LogUtil.i("停止录像");
+            if (mCamera != null) {
+                try {
+                    mCamera.reconnect();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private PictureTakenCallBack mPicListener;
+
+    public void setPicTakenListener(PictureTakenCallBack picListener) {
+        this.mPicListener = picListener;
+    }
+
+    public interface PictureTakenCallBack {
+        void onPictureTaken(String result, File file);
+    }
+
+    /**
+     * 拍照
+     *
+     * @param fileName 照片名字
+     * @param filePath 照片的路径
+     */
+    public void takePicture(String fileName, String filePath) {
+        this.mFileName = fileName;
+        this.mFileDir = mPath + "/" + filePath;
+        FileUtil.decideDirExist(mFileDir);  //创建文件夹
+        //拍照前 自动对焦
+        mCamera.autoFocus(new Camera.AutoFocusCallback() {
+            @Override
+            public void onAutoFocus(boolean success, Camera camera) {
+                if (success) {
+                    LogUtil.i("对焦成功");
+                } else {
+                    LogUtil.i("对焦失败");
+                }
+            }
+        });
+        // TODO: 18-6-18 如果想要在相册里看见该图片 需要更新系统图库，这里我就不做处理了 
+        mCamera.takePicture(null, null, new Camera.PictureCallback() {
+            @Override
+            public void onPictureTaken(byte[] data, Camera camera) {
+                File file = null;
+                try {
+                    if (mPicListener != null) {
+                        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0,
+                                data.length);
+                        //因为照片有可能是旋转的，这里要做一下处理
+                        Camera.CameraInfo info = new Camera.CameraInfo();
+                        Camera.getCameraInfo(mCameraId, info);
+                        Bitmap realBmp = FileUtil.rotaingBitmap(info.orientation, bitmap);
+
+                        file = FileUtil.saveFile(realBmp, mFileName, mFileDir + "/");
+                        mPicListener.onPictureTaken("", file);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    LogUtil.i("错误：  " + e.getMessage());
+                    if (mPicListener != null) {
+                        mPicListener.onPictureTaken("保存失败：" + e.getMessage(), file);
+                    }
+                }
+                mCamera.startPreview();
+            }
+        });
+    }
+
+    private byte[] rotateYUVDegree270AndMirror(byte[] data, int imageWidth, int imageHeight) {
+        byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
+        // Rotate and mirror the Y luma
+        int i = 0;
+        int maxY = 0;
+        for (int x = imageWidth - 1; x >= 0; x--) {
+            maxY = imageWidth * (imageHeight - 1) + x * 2;
+            for (int y = 0; y < imageHeight; y++) {
+                yuv[i] = data[maxY - (y * imageWidth + x)];
+                i++;
+            }
+        }
+        // Rotate and mirror the U and V color components
+        int uvSize = imageWidth * imageHeight;
+        i = uvSize;
+        int maxUV = 0;
+        for (int x = imageWidth - 1; x > 0; x = x - 2) {
+            maxUV = imageWidth * (imageHeight / 2 - 1) + x * 2 + uvSize;
+            for (int y = 0; y < imageHeight / 2; y++) {
+                yuv[i] = data[maxUV - 2 - (y * imageWidth + x - 1)];
+                i++;
+                yuv[i] = data[maxUV - (y * imageWidth + x)];
+                i++;
+            }
+        }
+        return yuv;
+    }
+
+    private PreviewCallback mPreviewCallback;
+
+    public void setPreviewCallback(PreviewCallback previewCallback) {
+        this.mPreviewCallback = previewCallback;
+    }
+
+    public interface PreviewCallback {
+        void onPreviewFrame(byte[] data, Camera camera);
+    }
+
+    public void stopPreview() {
         if (null != mCamera) {
             mCamera.stopPreview();
             mCamera.release();
             mCamera = null;
+            mInitCameraResult = false;
         }
     }
 }

@@ -5,6 +5,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     >
+    <SurfaceView
+        android:id="@+id/surfaceView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        />
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="50dp"
@@ -15,13 +20,23 @@
         <android.support.v7.widget.AppCompatImageView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:visibility="gone"
             app:srcCompat="@drawable/ic_img_camera_setting"/>
+        <Button
+            android:id="@+id/bt_recode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="录制"/>
+        <TextView
+            android:id="@+id/tv_recode_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00:00:00"
+            android:layout_marginLeft="10dp"
+            android:textColor="@android:color/holo_red_light"
+            android:visibility="invisible"
+            tools:visibility="visible"/>
     </LinearLayout>
-    <SurfaceView
-        android:id="@+id/surfaceView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-         />
     <LinearLayout
         android:background="@color/translate"
         android:layout_width="match_parent"
@@ -33,7 +48,7 @@
             android:id="@+id/iv_local"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:layout_height="70dp"
+            android:layout_height="50dp"
             android:src="@drawable/camera_shutter_gray"/>
         <ImageView
             android:id="@+id/iv_shutter"
@@ -45,7 +60,7 @@
             android:id="@+id/iv_change"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:layout_height="50dp"
+            android:layout_height="40dp"
             app:srcCompat="@drawable/ic_img_camera_change"/>
     </LinearLayout>
 </RelativeLayout>
