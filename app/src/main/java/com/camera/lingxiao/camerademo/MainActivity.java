@@ -1,15 +1,13 @@
 package com.camera.lingxiao.camerademo;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
-import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -20,12 +18,14 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.camera.lingxiao.camerademo.utils.CameraUtil;
+import com.camera.lingxiao.camerademo.utils.LogUtil;
+import com.media.lingxiao.harddecoder.utils.H264Encoder;
+
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 
 import de.hdodenhof.circleimageview.CircleImageView;
-import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
 
@@ -40,11 +40,17 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     private SurfaceHolder mHolder;
     private int mCamerId = 0;
     private Camera mCamera;
-    private ImageView shutterImg,changeImg;
+    private ImageView shutterImg, changeImg;
     private CircleImageView localImg;
     private Button recorderBtn;
     private CameraUtil mCameraUtil;
     private Uri localImgUri;
+    private int mWidth = 1920;
+    private int mHeight = 1080;
+    private int framerate = 30;
+    private int biterate = 8500 * 1000;
+    private H264Encoder mH264Encoder;
+    private Button mBtnEncoder, mBtnDecoder;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +62,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         shutterImg = findViewById(R.id.iv_shutter);
         changeImg = findViewById(R.id.iv_change);
         recorderBtn = findViewById(R.id.bt_recode);
+        mBtnEncoder = findViewById(R.id.bt_encoder);
+        mBtnDecoder = findViewById(R.id.bt_decoder);
         mHolder = mSurfaceView.getHolder();
         methodRequiresTwoPermission();
 
@@ -63,7 +71,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         changeImg.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (null != mCameraUtil){
+                if (null != mCameraUtil) {
                     mCameraUtil.changeCamera(mHolder);
                 }
             }
@@ -72,7 +80,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         localImg.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (null == localImgUri){
+                if (null == localImgUri) {
                     return;
                 }
                 //打开指定的一张照片
@@ -88,11 +96,30 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             @Override
             public void onClick(View v) {
                 shutterImg.setEnabled(false);
-                if (null != mCameraUtil){
+                if (null != mCameraUtil) {
                     mCameraUtil
                             .takePicture(System.currentTimeMillis() + ".jpg",
                                     "CameraDemo");
                 }
+            }
+        });
+
+        mBtnEncoder.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //启动线程编码
+                mH264Encoder = new H264Encoder(mWidth, mHeight, framerate, biterate);
+                mH264Encoder.StartEncoderThread();
+                mBtnEncoder.setEnabled(false);
+            }
+        });
+        mBtnDecoder.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.setType("*/*");//无类型限制
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                startActivityForResult(intent, 1);
             }
         });
     }
@@ -120,10 +147,10 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private void methodRequiresTwoPermission() {
         if (EasyPermissions.hasPermissions(this, perms)) {
-            if (checkCameraHardware(this)){
+            if (checkCameraHardware(this)) {
                 mHolder.addCallback(new SurfaceCallback());
-            }else {
-                Toast.makeText(this,"没有相机硬件",Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "没有相机硬件", Toast.LENGTH_SHORT).show();
             }
         } else {
             // Do not have permissions, request them now
@@ -141,22 +168,23 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     }
 
     private boolean isRecorder;
+
     private class SurfaceCallback implements SurfaceHolder.Callback {
 
         @Override
         public void surfaceCreated(final SurfaceHolder holder) {
             try {
                 mCamera = Camera.open(mCamerId);
-                mCameraUtil = new CameraUtil(mCamera,mCamerId);
+                mCameraUtil = new CameraUtil(mCamera, mCamerId);
                 mCameraUtil.setPicTakenListener(new CameraUtil.PictureTakenCallBack() {
                     @Override
                     public void onPictureTaken(String result, File file) {
-                        if (result.isEmpty()){
+                        if (result.isEmpty()) {
                             localImgUri = Uri.fromFile(file);
-                            Toast.makeText(getApplicationContext(),"保存成功",Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getApplicationContext(), "保存成功", Toast.LENGTH_SHORT).show();
                             localImg.setImageURI(localImgUri);
-                        }else {
-                            Toast.makeText(getApplicationContext(),result,Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(getApplicationContext(), result, Toast.LENGTH_SHORT).show();
                         }
                         shutterImg.setEnabled(true);
                     }
@@ -164,15 +192,18 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                 mCameraUtil.setPreviewCallback(new CameraUtil.PreviewCallback() {
                     @Override
                     public void onPreviewFrame(byte[] data, Camera camera) {
-
+                        if (null != mH264Encoder) {
+                            //给队列丢数据
+                            mH264Encoder.putYUVData(data, data.length);
+                        }
                     }
                 });
 
                 recorderBtn.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        if (null != mCameraUtil){
-                            if (isRecorder){
+                        if (null != mCameraUtil) {
+                            if (isRecorder) {
                                 //如果是正在录制 就点击停止录制 不往后走了
                                 mCameraUtil.stopRecorder();
                                 recorderBtn.setText("录制");
@@ -180,18 +211,18 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                             }
                             isRecorder = mCameraUtil.initRecorder(Environment
                                     .getExternalStorageDirectory()
-                                    .getAbsolutePath()+"/CameraDemo/"
-                                    +System.currentTimeMillis() + ".mp4",holder
+                                    .getAbsolutePath() + "/CameraDemo/"
+                                    + System.currentTimeMillis() + ".mp4", holder
                             );
 
-                            if (isRecorder){
+                            if (isRecorder) {
                                 LogUtil.i("正在录制");
                                 recorderBtn.setText("停止录制");
                             }
                         }
                     }
                 });
-            }catch (Exception e){
+            } catch (Exception e) {
                 LogUtil.i("摄像头被占用");
                 e.printStackTrace();
             }
@@ -201,8 +232,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
             try {
                 mCameraUtil
-                        .initCamera(mSurfaceView.getWidth(),
-                                mSurfaceView.getHeight(),
+                        .initCamera(mWidth,
+                                mHeight,
                                 MainActivity.this);
                 mCamera.setPreviewDisplay(holder);
             } catch (Exception e) {
@@ -212,9 +243,28 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
         @Override
         public void surfaceDestroyed(SurfaceHolder holder) {
-            if (null != mCameraUtil){
+            if (null != mCameraUtil) {
                 mCameraUtil.stopRecorder();
                 mCameraUtil.stopPreview();
+            }
+            if (null != mH264Encoder) {
+                mH264Encoder.stopThread();
+                mBtnEncoder.setEnabled(true);
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == RESULT_OK) {
+            if (requestCode == 1) {
+                Uri uri = data.getData();
+                String path = uri.getPath().toString();
+                Toast.makeText(this, path, Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(getApplicationContext(), PlayActivity.class);
+                intent.putExtra("path",path);
+                startActivity(intent);
             }
         }
     }

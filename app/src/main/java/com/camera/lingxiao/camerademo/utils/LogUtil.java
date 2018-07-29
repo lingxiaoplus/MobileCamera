@@ -1,4 +1,4 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.utils;
 
 import android.util.Log;
 

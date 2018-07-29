@@ -27,6 +27,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="录制"/>
+        <Button
+            android:id="@+id/bt_encoder"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="编码h264"/>
+        <Button
+            android:id="@+id/bt_decoder"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="解码h264"/>
         <TextView
             android:id="@+id/tv_recode_time"
             android:layout_width="wrap_content"

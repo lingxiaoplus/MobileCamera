@@ -1,8 +1,7 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.utils;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -13,11 +12,9 @@ import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
-import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.ref.Reference;
 import java.util.List;
 
 public class CameraUtil {
@@ -54,7 +51,7 @@ public class CameraUtil {
         Camera.Size optionSize = getOptimalPreviewSize(width, height);
         mWidth = optionSize.width;
         mHeight = optionSize.height;
-
+        LogUtil.e("最后得到的分辨率："+"width: "+mWidth+"  height: "+mHeight);
         parameters.setPreviewSize(optionSize.width, optionSize.height);
         //设置照片尺寸
         parameters.setPictureSize(optionSize.width, optionSize.height);
