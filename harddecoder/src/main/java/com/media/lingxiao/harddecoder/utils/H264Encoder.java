@@ -45,16 +45,22 @@ public class H264Encoder {
         m_framerate = framerate;
 
         MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", width, height);
+        //颜色空间设置为yuv420sp
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
+        //比特率，也就是码率 ，值越高视频画面更清晰画质更高
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 5);
-        mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
+        //帧率，一般设置为30帧就够了
+        mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, framerate);
+        //关键帧间隔
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
         try {
+            //初始化mediacodec
             mediaCodec = MediaCodec.createEncoderByType("video/avc");
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+        //设置为编码模式和编码格式
         mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         mediaCodec.start();
         createfile();

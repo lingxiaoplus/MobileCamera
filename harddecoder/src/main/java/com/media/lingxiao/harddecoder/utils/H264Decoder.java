@@ -112,6 +112,7 @@ public class H264Decoder {
             Iterator<byte[]> it = nals.iterator();
             while (it.hasNext()) {
                 ByteBuffer inputBuffer;
+                //在给指定Index的inputbuffer[]填充数据后，调用这个函数把数据传给解码器
                 int inputBufferIndex = mCodec.dequeueInputBuffer(10);
                 if (inputBufferIndex >= 0) {
                     // 版本判断。当手机系统小于 5.0 时，用arras
@@ -140,9 +141,11 @@ public class H264Decoder {
             }
             lastBuf = null;
         }
+        //解码后的数据，包含每一个buffer的元数据信息，例如偏差，在相关解码器中有效的数据大小
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
         int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, 100);
         while (outputBufferIndex >= 0) {
+            //对outputbuffer的处理完后，调用这个函数把buffer重新返回给codec类。
             mCodec.releaseOutputBuffer(outputBufferIndex, true);
             outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, 0);
         }
