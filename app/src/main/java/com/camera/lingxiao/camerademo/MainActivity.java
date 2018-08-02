@@ -107,8 +107,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         mBtnEncoder.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //启动线程编码
-                mH264Encoder = new H264Encoder(mWidth, mHeight, framerate, biterate);
+                //启动线程编码  注意宽高
+                mH264Encoder = new H264Encoder(mHeight, mWidth, framerate, biterate);
                 mH264Encoder.StartEncoderThread();
                 mBtnEncoder.setEnabled(false);
             }

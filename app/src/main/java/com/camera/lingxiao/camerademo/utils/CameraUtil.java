@@ -62,7 +62,6 @@ public class CameraUtil {
         //开启预览
         mCamera.startPreview();
 
-
         //1.设置回调:系统相机某些核心部分不走JVM,进行特殊优化，所以效率很高
         mCamera.setPreviewCallbackWithBuffer(new Camera.PreviewCallback() {
             @Override
@@ -70,10 +69,16 @@ public class CameraUtil {
                 //回收缓存处理
                 camera.addCallbackBuffer(datas);
                 if (null != mPreviewCallback) {
-                    mPreviewCallback.onPreviewFrame(datas, camera);
+                    byte[] yuvData = datas;
                     if (mOrienta != 0) {
-                        //说明有旋转角度
+                        //说明有旋转角度 最好在native层做数据处理
+                        if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
+                            yuvData = rotateYUVDegree90(datas,mWidth,mHeight);
+                        }else {
+                            yuvData = rotateYUVDegree270AndMirror(datas,mWidth,mHeight);
+                        }
                     }
+                    mPreviewCallback.onPreviewFrame(yuvData, camera);
                 }
             }
         });
@@ -369,6 +374,13 @@ public class CameraUtil {
         });
     }
 
+    /**
+     * 旋转yuv格式的数据270度并镜像翻转
+     * @param data
+     * @param imageWidth
+     * @param imageHeight
+     * @return
+     */
     private byte[] rotateYUVDegree270AndMirror(byte[] data, int imageWidth, int imageHeight) {
         byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
         // Rotate and mirror the Y luma
@@ -396,6 +408,37 @@ public class CameraUtil {
         }
         return yuv;
     }
+
+    /**
+     * yuv旋转90度
+     * @param data
+     * @param imageWidth
+     * @param imageHeight
+     * @return
+     */
+    private byte[] rotateYUVDegree90(byte[] data, int imageWidth, int imageHeight) {
+        byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
+        // Rotate the Y luma
+        int i = 0;
+        for (int x = 0; x < imageWidth; x++) {
+            for (int y = imageHeight - 1; y >= 0; y--) {
+                yuv[i] = data[y * imageWidth + x];
+                i++;
+            }
+        }
+        // Rotate the U and V color components
+        i = imageWidth * imageHeight * 3 / 2 - 1;
+        for (int x = imageWidth - 1; x > 0; x = x - 2) {
+            for (int y = 0; y < imageHeight / 2; y++) {
+                yuv[i] = data[(imageWidth * imageHeight) + (y * imageWidth) + x];
+                i--;
+                yuv[i] = data[(imageWidth * imageHeight) + (y * imageWidth) + (x - 1)];
+                i--;
+            }
+        }
+        return yuv;
+    }
+
 
     private PreviewCallback mPreviewCallback;
 

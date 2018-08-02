@@ -69,14 +69,15 @@ public class PlayActivity extends AppCompatActivity {
 
         @Override
         public void surfaceCreated(SurfaceHolder holder) {
-            //createSurface();
-            mDecoder = new H264Decoder();
+            createSurface();
+            /*mDecoder = new H264Decoder();
             mDecoder.play(holder,1920,1080);
             try {
                 mDecoder.handleH264(FileUtil.getBytes(mInputStream));
             } catch (IOException e) {
                 e.printStackTrace();
-            }
+            }*/
+
         }
 
         @Override
@@ -136,26 +137,28 @@ public class PlayActivity extends AppCompatActivity {
                     int nextFrameStart = KMPMatch(marker0, streamBuffer, startIndex + 2, remaining);
                     if (nextFrameStart == -1) {
                         nextFrameStart = remaining;
-                    } else {
                     }
 
+                    //1.准备填充器 该方法返回填充有效数据的输入缓冲区的索引 如果当前没有此类缓冲区，则返回-1。
                     int inIndex = mCodec.dequeueInputBuffer(timeoutUs);
                     if (inIndex >= 0) {
+                        //2.填充数据
                         ByteBuffer byteBuffer = inputBuffers[inIndex];
                         byteBuffer.clear();
                         byteBuffer.put(streamBuffer, startIndex, nextFrameStart - startIndex);
-                        //在给指定Index的inputbuffer[]填充数据后，调用这个函数把数据传给解码器
+                        //3.在给指定Index的inputbuffer[]填充数据后，调用这个函数把数据传给解码器
                         mCodec.queueInputBuffer(inIndex, 0, nextFrameStart - startIndex, 0, 0);
                         startIndex = nextFrameStart;
                     } else {
                         continue;
                     }
-
+                    //4 开始解码 第二个参数是最多阻塞timeoutUs微秒
                     int outIndex = mCodec.dequeueOutputBuffer(info, timeoutUs);
                     if (outIndex >= 0) {
                         //帧控制是不在这种情况下工作，因为没有PTS H264是可用的
                         while (info.presentationTimeUs / 1000 > System.currentTimeMillis() - startMs) {
                             try {
+                                //这里可以根据实际情况调整解码速度
                                 Thread.sleep(100);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
@@ -163,9 +166,10 @@ public class PlayActivity extends AppCompatActivity {
                         }
                         boolean doRender = (info.size != 0);
                         //对outputbuffer的处理完后，调用这个函数把buffer重新返回给codec类。
+                        //调用这个api之后，SurfaceView才有图像
                         mCodec.releaseOutputBuffer(outIndex, doRender);
-                    } else {
                     }
+
                 }
                 mStopFlag = true;
             }
@@ -241,7 +245,7 @@ public class PlayActivity extends AppCompatActivity {
             e.printStackTrace();
         }
         //初始化编码器
-        final MediaFormat mediaformat = MediaFormat.createVideoFormat("video/avc", 1920, 1080);
+        final MediaFormat mediaformat = MediaFormat.createVideoFormat("video/avc", 1080, 1920);
         //获取h264中的pps及sps数据
         if (isUsePpsAndSps) {
             byte[] header_sps = {0, 0, 0, 1, 103, 66, 0, 42, (byte) 149, (byte) 168, 30, 0, (byte) 137, (byte) 249, 102, (byte) 224, 32, 32, 32, 64};
