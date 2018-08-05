@@ -159,7 +159,7 @@ public class PlayActivity extends AppCompatActivity {
                         while (info.presentationTimeUs / 1000 > System.currentTimeMillis() - startMs) {
                             try {
                                 //这里可以根据实际情况调整解码速度
-                                Thread.sleep(100);
+                                Thread.sleep(500);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }

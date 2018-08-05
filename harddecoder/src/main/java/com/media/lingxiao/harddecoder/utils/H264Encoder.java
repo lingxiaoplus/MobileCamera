@@ -82,7 +82,7 @@ public class H264Encoder {
         }
     }
 
-    public void putYUVData(byte[] buffer, int length) {
+    public void putYUVData(byte[] buffer) {
         if (YUVQueue.size() >= 10) {
             YUVQueue.poll();
         }
@@ -155,6 +155,7 @@ public class H264Encoder {
                         }
                     } else {
                         try {
+                            //这里可以根据实际情况调整编码速度
                             Thread.sleep(500);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
@@ -167,8 +168,11 @@ public class H264Encoder {
     }
 
     private void stopEncoder() {
-        mediaCodec.stop();
-        mediaCodec.release();
+        if (null != mediaCodec){
+            mediaCodec.stop();
+            mediaCodec.release();
+            mediaCodec = null;
+        }
     }
 
     public void stopThread(){
@@ -188,5 +192,9 @@ public class H264Encoder {
      */
     private long computePresentationTime(long frameIndex) {
         return 132 + frameIndex * 1000000 / m_framerate;
+    }
+
+    public boolean isEncodering(){
+        return isRuning;
     }
 }

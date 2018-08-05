@@ -104,13 +104,21 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             }
         });
 
+
         mBtnEncoder.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 //启动线程编码  注意宽高
-                mH264Encoder = new H264Encoder(mHeight, mWidth, framerate, biterate);
-                mH264Encoder.StartEncoderThread();
-                mBtnEncoder.setEnabled(false);
+                if (null != mCameraUtil && null == mH264Encoder){
+                    mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate);
+                }
+                if (!mH264Encoder.isEncodering()){
+                    mH264Encoder.StartEncoderThread();
+                    mBtnEncoder.setText("停止编码");
+                }else {
+                    mH264Encoder.stopThread();
+                    mBtnEncoder.setText("编码h264");
+                }
             }
         });
         mBtnDecoder.setOnClickListener(new View.OnClickListener() {
@@ -194,7 +202,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                     public void onPreviewFrame(byte[] data, Camera camera) {
                         if (null != mH264Encoder) {
                             //给队列丢数据
-                            mH264Encoder.putYUVData(data, data.length);
+                            mH264Encoder.putYUVData(data);
                         }
                     }
                 });
@@ -249,7 +257,6 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             }
             if (null != mH264Encoder) {
                 mH264Encoder.stopThread();
-                mBtnEncoder.setEnabled(true);
             }
         }
     }

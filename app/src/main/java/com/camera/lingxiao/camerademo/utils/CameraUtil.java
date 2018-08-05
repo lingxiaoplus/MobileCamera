@@ -410,7 +410,7 @@ public class CameraUtil {
     }
 
     /**
-     * yuv旋转90度
+     * yuv旋转90度  y = width*height，u = y/4 v = y/4
      * @param data
      * @param imageWidth
      * @param imageHeight
@@ -457,5 +457,16 @@ public class CameraUtil {
             mCamera = null;
             mInitCameraResult = false;
         }
+    }
+
+    public int getWidth(){
+        if (mOrienta != 0)
+            return mHeight;
+        return mWidth;
+    }
+    public int getHeight(){
+        if (mOrienta != 0)
+            return mWidth;
+        return mHeight;
     }
 }
