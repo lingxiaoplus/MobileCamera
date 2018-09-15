@@ -157,6 +157,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         if (EasyPermissions.hasPermissions(this, perms)) {
             if (checkCameraHardware(this)) {
                 mHolder.addCallback(new SurfaceCallback());
+                /*mHolder.setFixedSize(getResources().getDisplayMetrics().widthPixels,
+                        getResources().getDisplayMetrics().heightPixels);*/
             } else {
                 Toast.makeText(this, "没有相机硬件", Toast.LENGTH_SHORT).show();
             }

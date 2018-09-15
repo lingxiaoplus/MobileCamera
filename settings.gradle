@@ -1,1 +1,1 @@
-include ':app', ':harddecoder'
+include ':app', ':harddecoder', ':audiorecord'

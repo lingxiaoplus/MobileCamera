@@ -5,6 +5,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.os.Environment;
+import android.util.Log;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -39,6 +40,7 @@ public class H264Encoder {
         }
     }
 
+    private int bit_rate = 5; //可以设置为 1 3 5
     public H264Encoder(int width, int height, int framerate, int bitrate) {
         m_width = width;
         m_height = height;
@@ -48,7 +50,7 @@ public class H264Encoder {
         //颜色空间设置为yuv420sp
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
         //比特率，也就是码率 ，值越高视频画面更清晰画质更高
-        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 5);
+        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * bit_rate);
         //帧率，一般设置为30帧就够了
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, framerate);
         //关键帧间隔
@@ -149,7 +151,6 @@ public class H264Encoder {
                                 mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                                 outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
                             }
-
                         } catch (Throwable t) {
                             t.printStackTrace();
                         }

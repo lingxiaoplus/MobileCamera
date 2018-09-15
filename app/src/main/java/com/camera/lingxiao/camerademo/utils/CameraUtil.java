@@ -56,7 +56,12 @@ public class CameraUtil {
         //设置照片尺寸
         parameters.setPictureSize(optionSize.width, optionSize.height);
         //设置实时对焦 部分手机不支持会crash
-        parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+        //parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+        List<String> focusModes = parameters.getSupportedFocusModes();
+        if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)){
+            parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+        }
+
         mCamera.setParameters(parameters);
         setCameraDisplayOrientation(activity);
         //开启预览
