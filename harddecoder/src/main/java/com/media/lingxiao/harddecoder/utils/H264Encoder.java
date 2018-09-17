@@ -85,7 +85,7 @@ public class H264Encoder {
     }
 
     public void putYUVData(byte[] buffer) {
-        if (YUVQueue.size() >= 10) {
+        if (YUVQueue.size() >= yuvqueuesize) {
             YUVQueue.poll();
         }
         YUVQueue.add(buffer);

@@ -7,15 +7,24 @@ import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.hardware.Camera;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
+
+import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
+import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
 
 public class CameraUtil {
     private int mOrienta = 0;//时针旋转的角度
@@ -67,14 +76,31 @@ public class CameraUtil {
         //开启预览
         mCamera.startPreview();
 
+       /* mCamera.setPreviewCallback(new Camera.PreviewCallback() {
+            @Override
+            public void onPreviewFrame(byte[] bytes, Camera camera) {
+                if (null != mPreviewCallback) {
+                    byte[] yuvData = bytes;
+                    if (mOrienta != 0) {
+                        //说明有旋转角度 最好在native层做数据处理
+                        if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
+                            yuvData = rotateYUVDegree90(bytes,mWidth,mHeight);
+                        }else {
+                            yuvData = rotateYUVDegree270AndMirror(bytes,mWidth,mHeight);
+                        }
+                    }
+                    mPreviewCallback.onPreviewFrame(yuvData, camera);
+                    mCamera.addCallbackBuffer(bytes);
+                }
+
+            }
+        });*/
         //1.设置回调:系统相机某些核心部分不走JVM,进行特殊优化，所以效率很高
         mCamera.setPreviewCallbackWithBuffer(new Camera.PreviewCallback() {
             @Override
             public void onPreviewFrame(byte[] datas, Camera camera) {
-                //回收缓存处理
-                camera.addCallbackBuffer(datas);
                 if (null != mPreviewCallback) {
-                    byte[] yuvData = datas;
+                     byte[] yuvData = datas;
                     if (mOrienta != 0) {
                         //说明有旋转角度 最好在native层做数据处理
                         if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
@@ -84,6 +110,8 @@ public class CameraUtil {
                         }
                     }
                     mPreviewCallback.onPreviewFrame(yuvData, camera);
+                    //回收缓存处理 必须放这里 不然会出现垂直同步问题
+                    camera.addCallbackBuffer(datas);
                 }
             }
         });
@@ -92,7 +120,6 @@ public class CameraUtil {
                 ImageFormat.getBitsPerPixel(ImageFormat.NV21)) / 8]);
         mInitCameraResult = true;
     }
-
     /**
      * 得到摄像头默认旋转角度后，旋转回来  注意是逆时针旋转
      *
