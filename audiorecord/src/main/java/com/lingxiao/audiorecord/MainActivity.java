@@ -27,25 +27,6 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.RECORD_AUDIO};
     private String mPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/AudioSimple/";
-
-    private Handler mHandler = new Handler();
-    private Runnable mAudioRunnableTask = new Runnable() {
-        @Override
-        public void run() {
-            boolean result = AudioUtil.getInstance().startAudioRecord(mFileName);
-            if (result){
-                Log.e(TAG, "开始录音");
-            }else {
-                Log.e(TAG, "录音失败");
-                /*mHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(getApplicationContext(),"录音失败",Toast.LENGTH_SHORT).show();
-                    }
-                });*/
-            }
-        }
-    };
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -60,7 +41,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                     mBtnAudio.setText("开始录音");
                 }else {
                     mBtnAudio.setText("停止录音");
-                    new Thread(mAudioRunnableTask).start();
+                    AudioUtil.getInstance().startRecord(mFileName);
                 }
             }
         });
@@ -69,11 +50,11 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             @Override
             public void onClick(View view) {
                 if (AudioUtil.getInstance().isPlaying()){
-                    mBtnPlay.setText("停止播放");
-                }else {
+                    AudioUtil.getInstance().stopPlay();
                     mBtnPlay.setText("开始播放");
-                    File file = new File(mPath+"test.pcm");
-                    AudioUtil.getInstance().doPlay(file);
+                }else {
+                    mBtnPlay.setText("停止播放");
+                    AudioUtil.getInstance().startPlay(mPath+"test.pcm");
                 }
 
             }

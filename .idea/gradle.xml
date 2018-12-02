@@ -11,6 +11,7 @@
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/audiorecord" />
             <option value="$PROJECT_DIR$/harddecoder" />
+            <option value="$PROJECT_DIR$/minaclient" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />

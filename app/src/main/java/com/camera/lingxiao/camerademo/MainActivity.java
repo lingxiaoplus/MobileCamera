@@ -21,15 +21,19 @@ import android.widget.Toast;
 import com.camera.lingxiao.camerademo.utils.CameraUtil;
 import com.camera.lingxiao.camerademo.utils.LogUtil;
 import com.media.lingxiao.harddecoder.utils.H264Encoder;
+import com.media.lingxiao.harddecoder.utils.Server;
+import com.media.lingxiao.harddecoder.utils.model.VideoStreamModel;
+import com.media.lingxiao.harddecoder.utils.tlv.ServerConfig;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
 
-public class MainActivity extends AppCompatActivity implements EasyPermissions.PermissionCallbacks {
+public class MainActivity extends BaseActivity implements EasyPermissions.PermissionCallbacks ,H264Encoder.PreviewFrameListener{
     private String[] perms = {Manifest.permission.CAMERA,
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -51,6 +55,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     private int biterate = 8500 * 1000;
     private H264Encoder mH264Encoder;
     private Button mBtnEncoder, mBtnDecoder;
+    private Server mServer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +71,15 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         mBtnDecoder = findViewById(R.id.bt_decoder);
         mHolder = mSurfaceView.getHolder();
         methodRequiresTwoPermission();
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                mServer = new Server();
+
+                mServer.start(2333, new ServerConfig());
+            }
+        }).start();
 
 
         changeImg.setOnClickListener(new View.OnClickListener() {
@@ -109,13 +123,14 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             @Override
             public void onClick(View v) {
                 //启动线程编码  注意宽高
-                if (null != mCameraUtil && null == mH264Encoder){
+                if (null != mCameraUtil && null == mH264Encoder) {
                     mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate);
                 }
-                if (!mH264Encoder.isEncodering()){
+                if (!mH264Encoder.isEncodering()) {
                     mH264Encoder.StartEncoderThread();
+                    mH264Encoder.setPreviewListner(MainActivity.this);
                     mBtnEncoder.setText("停止编码");
-                }else {
+                } else {
                     mH264Encoder.stopThread();
                     mBtnEncoder.setText("编码h264");
                 }
@@ -178,6 +193,27 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     }
 
     private boolean isRecorder;
+    private long mSeq_no0;
+    private long mSeq_no1;
+    //h264回调
+    @Override
+    public void onPreview(byte[] data, int width, int height) {
+         //硬编码之后的h264数据
+        //发送数据
+        if (null != mServer){
+            byte[] h264Data = Arrays.copyOf(data,data.length);
+            VideoStreamModel model = new VideoStreamModel();
+            mSeq_no0++;
+            mSeq_no1++;
+            model.setType(2);
+            model.setWidth(width);
+            model.setHeight(height);
+            model.setSeq_no0(mSeq_no0);
+            model.setSeq_no1(mSeq_no1);
+            model.setVideo(h264Data);
+            mServer.broadcastPreviewFrameData(model);
+        }
+    }
 
     private class SurfaceCallback implements SurfaceHolder.Callback {
 
@@ -219,13 +255,16 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                                 recorderBtn.setText("录制");
                                 return;
                             }
-                            isRecorder = mCameraUtil.initRecorder(Environment
+                            String filePath = Environment
                                     .getExternalStorageDirectory()
                                     .getAbsolutePath() + "/CameraDemo/"
-                                    + System.currentTimeMillis() + ".mp4", holder
+                                    + System.currentTimeMillis() + ".mp4";
+                            isRecorder = mCameraUtil.initRecorder(filePath, holder
                             );
 
                             if (isRecorder) {
+                                Toast.makeText(getApplicationContext(),"文件保存在："+filePath,
+                                        Toast.LENGTH_LONG).show();
                                 LogUtil.i("正在录制");
                                 recorderBtn.setText("停止录制");
                             }
@@ -272,9 +311,17 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                 String path = uri.getPath().toString();
                 Toast.makeText(this, path, Toast.LENGTH_SHORT).show();
                 Intent intent = new Intent(getApplicationContext(), PlayActivity.class);
-                intent.putExtra("path",path);
+                intent.putExtra("path", path);
                 startActivity(intent);
             }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mServer != null) {
+            mServer.stop();
         }
     }
 }

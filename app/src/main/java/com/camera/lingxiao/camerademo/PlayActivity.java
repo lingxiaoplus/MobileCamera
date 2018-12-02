@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
-public class PlayActivity extends AppCompatActivity {
+public class PlayActivity extends BaseActivity {
 
     private SurfaceView mSurfaceView;
     private DataInputStream mInputStream;
@@ -42,9 +42,7 @@ public class PlayActivity extends AppCompatActivity {
         setContentView(R.layout.activity_play);
         mSurfaceView = findViewById(R.id.surfaceView_play);
         Intent intent = getIntent();
-        if (!path.isEmpty()){
-            //path = intent.getStringExtra("path");
-        }
+        path = intent.getStringExtra("path");
         File f = new File(path);
         if (null == f || !f.exists() || f.length() == 0) {
             Toast.makeText(this, "视频文件不存在", Toast.LENGTH_LONG).show();
@@ -65,7 +63,7 @@ public class PlayActivity extends AppCompatActivity {
         mHolder.addCallback(new SurfaceCallback());
     }
 
-    private class SurfaceCallback implements SurfaceHolder.Callback{
+    private class SurfaceCallback implements SurfaceHolder.Callback {
 
         @Override
         public void surfaceCreated(SurfaceHolder holder) {
@@ -93,16 +91,17 @@ public class PlayActivity extends AppCompatActivity {
 
 
     /**
-     * @author ldm
      * @description 解码线程
      * @time 2016/12/19 16:36
      */
-    private class decodeThread implements Runnable {
+    private class DecodeThread implements Runnable {
         @Override
         public void run() {
             try {
+                //解码细节
                 decodeLoop();
             } catch (Exception e) {
+                e.printStackTrace();
             }
         }
 
@@ -113,7 +112,7 @@ public class PlayActivity extends AppCompatActivity {
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
             long startMs = System.currentTimeMillis();
             long timeoutUs = 10000;
-            byte[] marker0 = new byte[]{0, 0, 0, 1};
+            byte[] marker0 = new byte[]{0, 0, 0, 1}; //相当于每帧之间的分隔符
             byte[] dummyFrame = new byte[]{0x00, 0x00, 0x01, 0x20};
             byte[] streamBuffer = null;
             try {
@@ -176,6 +175,12 @@ public class PlayActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 从文件中读取字节数组
+     * @param is
+     * @return
+     * @throws IOException
+     */
     public static byte[] getBytes(InputStream is) throws IOException {
         int len;
         int size = 1024;
@@ -194,7 +199,15 @@ public class PlayActivity extends AppCompatActivity {
         return buf;
     }
 
-    int KMPMatch(byte[] pattern, byte[] bytes, int start, int remain) {
+    /**
+     * kpm字符串匹配算法 通过分隔符匹配出下一帧的位置
+     * @param pattern 0 0 0 1
+     * @param bytes 文件流数据
+     * @param start
+     * @param remain 文件流大小
+     * @return
+     */
+    private int KMPMatch(byte[] pattern, byte[] bytes, int start, int remain) {
         try {
             Thread.sleep(30);
         } catch (InterruptedException e) {
@@ -219,7 +232,7 @@ public class PlayActivity extends AppCompatActivity {
         return -1;  // Not found
     }
 
-    int[] computeLspTable(byte[] pattern) {
+    private int[] computeLspTable(byte[] pattern) {
         int[] lsp = new int[pattern.length];
         lsp[0] = 0;  // Base case
         for (int i = 1; i < pattern.length; i++) {
@@ -235,10 +248,8 @@ public class PlayActivity extends AppCompatActivity {
     }
 
 
-    private void createSurface(){
-        try
-
-        {
+    private void createSurface() {
+        try {
             //通过多媒体格式名创建一个可用的解码器
             mCodec = MediaCodec.createDecoderByType("video/avc");
         } catch (IOException e) {
@@ -262,11 +273,12 @@ public class PlayActivity extends AppCompatActivity {
         //crypto    如果需要给媒体数据加密，此处指定一个crypto类.
         //   flags  如果正在配置的对象是用作编码器，此处加上CONFIGURE_FLAG_ENCODE 标签。
         mCodec.configure(mediaformat, mHolder.getSurface(), null, 0);
+        mCodec.start();
         startDecodingThread();
     }
+
     private void startDecodingThread() {
-        mCodec.start();
-        mDecodeThread = new Thread(new decodeThread());
+        mDecodeThread = new Thread(new DecodeThread());
         mDecodeThread.start();
     }
 }

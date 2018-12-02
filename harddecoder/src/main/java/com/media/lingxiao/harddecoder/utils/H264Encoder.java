@@ -40,7 +40,7 @@ public class H264Encoder {
         }
     }
 
-    private int bit_rate = 5; //可以设置为 1 3 5
+    private int bit_rate = 3; //可以设置为 1 3 5
     public H264Encoder(int width, int height, int framerate, int bitrate) {
         m_width = width;
         m_height = height;
@@ -143,8 +143,14 @@ public class H264Encoder {
                                     System.arraycopy(configbyte, 0, keyframe, 0, configbyte.length);
                                     //把编码后的视频帧从编码器输出缓冲区中拷贝出来
                                     System.arraycopy(outData, 0, keyframe, configbyte.length, outData.length);
+                                    if (h264Listener != null){
+                                        h264Listener.onPreview(keyframe,m_width,m_height);
+                                    }
                                     outputStream.write(keyframe, 0, keyframe.length);
                                 }else{
+                                    if (h264Listener != null){
+                                        h264Listener.onPreview(outData,m_width,m_height);
+                                    }
                                     outputStream.write(outData, 0, outData.length);
                                 }
 
@@ -182,6 +188,7 @@ public class H264Encoder {
             stopEncoder();
             outputStream.flush();
             outputStream.close();
+            h264Listener = null;
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -198,4 +205,13 @@ public class H264Encoder {
     public boolean isEncodering(){
         return isRuning;
     }
+
+    private PreviewFrameListener h264Listener;
+    public void setPreviewListner(PreviewFrameListener listener){
+        this.h264Listener = listener;
+    }
+    public interface PreviewFrameListener {
+        void onPreview(byte[] data,int width ,int height);
+    }
+
 }

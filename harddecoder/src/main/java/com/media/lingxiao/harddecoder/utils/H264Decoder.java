@@ -3,6 +3,7 @@ package com.media.lingxiao.harddecoder.utils;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Build;
+import android.util.Log;
 import android.view.SurfaceHolder;
 
 import java.nio.ByteBuffer;
@@ -11,11 +12,13 @@ import java.util.Iterator;
 import java.util.List;
 
 public class H264Decoder {
-
+    private static final int TIMEOUT_USEC = 12000;
     private MediaCodec mCodec;
     private boolean isStart = false;
+    public static final String TAG = H264Decoder.class.getSimpleName();
     public void play(SurfaceHolder holder,int width,int height) {
         try {
+            Log.d(TAG, "播放的宽: "+width+"   高："+height);
             mCodec = MediaCodec.createDecoderByType("video/avc");
             MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", width, height);
             mCodec.configure(mediaFormat, holder.getSurface(), null, 0);
@@ -33,6 +36,14 @@ public class H264Decoder {
 
     }
 
+    public void stop(){
+        if (mCodec != null){
+            mCodec.stop();
+            mCodec.release();
+            mCodec = null;
+            isStart = false;
+        }
+    }
     private byte[] lastBuf;
     private List<byte[]> nals = new ArrayList<>(30);
     private boolean csdSet = false; // sps和pps是否设置，在mediacodec里面可以不显式设置到mediaformat，但需要在buffer的前两帧给出
@@ -113,7 +124,7 @@ public class H264Decoder {
             while (it.hasNext()) {
                 ByteBuffer inputBuffer;
                 //在给指定Index的inputbuffer[]填充数据后，调用这个函数把数据传给解码器
-                int inputBufferIndex = mCodec.dequeueInputBuffer(10);
+                int inputBufferIndex = mCodec.dequeueInputBuffer(TIMEOUT_USEC);
                 if (inputBufferIndex >= 0) {
                     // 版本判断。当手机系统小于 5.0 时，用arras
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -143,7 +154,7 @@ public class H264Decoder {
         }
         //解码后的数据，包含每一个buffer的元数据信息，例如偏差，在相关解码器中有效的数据大小
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-        int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, 100);
+        int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
         while (outputBufferIndex >= 0) {
             //对outputbuffer的处理完后，调用这个函数把buffer重新返回给codec类。
             mCodec.releaseOutputBuffer(outputBufferIndex, true);

@@ -14,7 +14,7 @@ import java.util.List;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
 
-public class SplashActivity extends AppCompatActivity implements View.OnClickListener,EasyPermissions.PermissionCallbacks{
+public class SplashActivity extends BaseActivity implements View.OnClickListener,EasyPermissions.PermissionCallbacks{
 
     /**
      * MediaExtractor视频换音
@@ -24,7 +24,7 @@ public class SplashActivity extends AppCompatActivity implements View.OnClickLis
     /**
      * camera采集
      */
-    private Button mButtonCamera;
+    private Button mButtonCamera,mButtonAudio;
     private String[] perms = {Manifest.permission.CAMERA,
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -43,6 +43,8 @@ public class SplashActivity extends AppCompatActivity implements View.OnClickLis
         mButtonExtractor.setOnClickListener(this);
         mButtonCamera = (Button) findViewById(R.id.button_camera);
         mButtonCamera.setOnClickListener(this);
+        mButtonAudio = findViewById(R.id.button_audio);
+        mButtonAudio.setOnClickListener(this);
     }
 
     @Override
@@ -55,6 +57,9 @@ public class SplashActivity extends AppCompatActivity implements View.OnClickLis
                 break;
             case R.id.button_camera:
                 startActivity(new Intent(getApplicationContext(),MainActivity.class));
+                break;
+            case R.id.button_audio:
+                startActivity(new Intent(getApplicationContext(),AudioActivity.class));
                 break;
         }
     }

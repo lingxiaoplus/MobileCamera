@@ -10,8 +10,19 @@ import android.support.annotation.RequiresApi;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Vector;
 
 public class MediaUtil {
+    private static Vector<MuxerData> muxerDatas;
+    private static MediaUtil mediaUtil;
+    private static MediaUtil getInstance(){
+        if (mediaUtil == null){
+            synchronized (MediaUtil.class){
+                mediaUtil = new MediaUtil();
+            }
+        }
+        return mediaUtil;
+    }
     /**
      * 将音频和视频进行合成
      * @param audioPath 提供音频的文件路径
@@ -19,7 +30,6 @@ public class MediaUtil {
      * @param frameVideoPath 提供视频的文件路径
      * @param combinedVideoOutFile 保存的文件
      */
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     public static int combineTwoVideos(String audioPath,
                                         long audioStartTime,
                                         String frameVideoPath,
@@ -121,4 +131,49 @@ public class MediaUtil {
         mediaMuxer.release();
         return 0;
     }
+
+
+    public MediaUtil addMuxerData(MuxerData data){
+        if (muxerDatas == null){
+            muxerDatas = new Vector<>();
+        }
+        muxerDatas.add(data);
+        return mediaUtil;
+    }
+    public void recordeH264toMp4(MediaFormat format,File outPut) throws IOException {
+        MediaMuxer mediaMuxer = new MediaMuxer(outPut.getAbsolutePath(),
+                MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        //暂时只有video的track
+        int videoTrackIndex = mediaMuxer.addTrack(format);
+        if (!muxerDatas.isEmpty()){
+            MuxerData data = muxerDatas.remove(0);
+            /*int track;
+            if (data.trackIndex == TRACK_VIDEO) {
+                track = videoTrackIndex;
+            } else {
+                track = audioTrackIndex;
+            }*/
+            LogUtil.e( "写入混合数据 " + data.bufferInfo.size);
+            try {
+                mediaMuxer.writeSampleData(videoTrackIndex, data.byteBuf, data.bufferInfo);
+            } catch (Exception e) {
+                LogUtil.e( "写入混合数据失败!" + e.toString());
+            }
+        }
+    }
+
+    /**
+     * 封装需要传输的数据类型
+     */
+    public static class MuxerData {
+        int trackIndex;
+        ByteBuffer byteBuf;
+        MediaCodec.BufferInfo bufferInfo;
+        public MuxerData(int trackIndex, ByteBuffer byteBuf, MediaCodec.BufferInfo bufferInfo) {
+            this.trackIndex = trackIndex;
+            this.byteBuf = byteBuf;
+            this.bufferInfo = bufferInfo;
+        }
+    }
+
 }

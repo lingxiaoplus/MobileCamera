@@ -1,1 +1,1 @@
-include ':app', ':harddecoder', ':audiorecord'
+include ':app', ':harddecoder', ':audiorecord', ':minaclient'

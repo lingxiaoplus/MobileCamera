@@ -26,11 +26,35 @@ public class AudioUtil {
     private long mStartTimeStamp;
     private File mAudioFile;
     private String mPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/AudioSimple/";
-    private FileOutputStream mAudioFileOutput;
+    private FileOutputStream mAudioFileOutput; //存储录音文件
+    private FileInputStream mAudioPlayInputStream; //播放录音文件
     private boolean isRecording = false;
 
     private static AudioUtil audioUtil;
     private boolean mIsPlaying;
+    private AudioTrack mAudioTrack;
+    private String mRecordFileName; //录音保存的文件路径
+    private String mPlayFileName; //播放录音的文件路径
+
+    private Runnable mAudioRunnableTask = new Runnable() {
+        @Override
+        public void run() {
+            boolean result = startAudioRecord(mRecordFileName);
+            if (result){
+                Log.e(TAG, "录音结束");
+            }else {
+                Log.e(TAG, "录音失败");
+            }
+        }
+    };
+
+    private Runnable mAudioPlayRunnableTask = new Runnable() {
+        @Override
+        public void run() {
+            File file = new File(mPlayFileName);
+            doPlay(file);
+        }
+    };
 
     private AudioUtil(){}
     public static AudioUtil getInstance(){
@@ -43,7 +67,8 @@ public class AudioUtil {
         }
         return audioUtil;
     }
-    public boolean startAudioRecord(String fileName) {
+
+    private boolean startAudioRecord(String fileName) {
         isRecording = true;
         mStartTimeStamp = System.currentTimeMillis();
         mAudioFile = new File(mPath+fileName+mStartTimeStamp+".pcm");
@@ -71,34 +96,18 @@ public class AudioUtil {
             while (isRecording){
                 //只要还在录音就一直读取
                 int read = audioRecord.read(data,0,recordBufSize);
-                if (read <= 0){
-                    return false;
-                }else {
+                if (read > 0){
                     mAudioFileOutput.write(data,0,read);
                 }
             }
-            stopRecorder();
+            //stopRecorder();
         } catch (IOException e) {
             e.printStackTrace();
-            stopRecorder();
+            stopAudioRecord();
             return false;
         }
         return true;
     }
-
-    public boolean stopAudioRecord(){
-        isRecording = false;
-        stopRecorder();
-        try {
-            mAudioFileOutput.flush();
-            mAudioFileOutput.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;
-        }
-        return true;
-    }
-
 
     public void doPlay(File audioFile) {
         if(audioFile !=null){
@@ -119,65 +128,102 @@ public class AudioUtil {
             int minBufferSize=AudioTrack.getMinBufferSize(sampleRate,channelConfig,audioFormat);
             byte data[] = new byte[minBufferSize];
             //构造AudioTrack  不能小于AudioTrack的最低要求，也不能小于我们每次读的大小
-            AudioTrack audioTrack=new AudioTrack(streamType,sampleRate,channelConfig,audioFormat,
+            mAudioTrack = new AudioTrack(streamType,sampleRate,channelConfig,audioFormat,
                     Math.max(minBufferSize,data.length),mode);
 
             //从文件流读数据
-            FileInputStream inputStream=null;
             try{
                 //循环读数据，写到播放器去播放
-                inputStream=new FileInputStream(audioFile);
+                mAudioPlayInputStream = new FileInputStream(audioFile);
 
                 //循环读数据，写到播放器去播放
                 int read;
                 //只要没读完，循环播放
-                while ((read=inputStream.read(data))>0){
-                    int ret=audioTrack.write(data,0,read);
+                mAudioTrack.play();
+                while (mIsPlaying){
+                    int ret = 0;
+                    read = mAudioPlayInputStream.read(data);
+                    if (read > 0){
+                        ret = mAudioTrack.write(data,0,read);
+                    }
+                    //mAudioFileOutput.write(data,0,read);
                     //检查write的返回值，处理错误
                     switch (ret){
                         case AudioTrack.ERROR_INVALID_OPERATION:
                         case AudioTrack.ERROR_BAD_VALUE:
                         case AudioManager.ERROR_DEAD_OBJECT:
-                            Log.d(TAG, "doPlay: 失败");
+                            Log.d(TAG, "doPlay: 失败,错误码："+ret);
                             return;
                         default:
                             break;
                     }
                 }
-
             }catch (Exception e){
                 e.printStackTrace();
                 //读取失败
                 Log.d(TAG, "doPlay: 失败");
             }finally {
-                mIsPlaying = false;
-                //关闭文件输入流
-                if(inputStream !=null){
-                    try {
-                        inputStream.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-                //播放器释放
-                audioTrack.stop();
-                audioTrack.release();
-                audioTrack = null;
+                stopPlay();
+                Log.d(TAG, "结束播放");
             }
         }
     }
 
+    public void startRecord(String fileName){
+        this.mRecordFileName = fileName;
+        new Thread(mAudioRunnableTask).start();
+    }
+
+    public void startPlay(String fileName){
+        this.mPlayFileName = fileName;
+        new Thread(mAudioPlayRunnableTask).start();
+    }
+    public boolean stopAudioRecord(){
+        isRecording = false;
+        if (audioRecord != null){
+            audioRecord.stop();
+            audioRecord.release();
+            audioRecord = null;
+        }
+        try {
+            mAudioFileOutput.flush();
+            mAudioFileOutput.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
     public boolean isRecording(){
         return isRecording;
     }
     public boolean isPlaying(){
         return mIsPlaying;
     }
-    private void stopRecorder() {
-        if (audioRecord != null){
-            audioRecord.stop();
-            audioRecord.release();
-            audioRecord = null;
+    public void stopPlay(){
+        mIsPlaying = false;
+        //播放器释放
+        if(mAudioTrack != null){
+            mAudioTrack.stop();
+            mAudioTrack.release();
+            mAudioTrack = null;
         }
+        //关闭文件输入流
+        if(mAudioPlayInputStream !=null){
+            try {
+                mAudioPlayInputStream.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    private AudioListener mAudioListener;
+    public void setAudioListener(AudioListener listener){
+        this.mAudioListener = listener;
+    }
+    public interface AudioListener{
+        void onRecordFinish();
+        void onPlayFinish();
     }
 }

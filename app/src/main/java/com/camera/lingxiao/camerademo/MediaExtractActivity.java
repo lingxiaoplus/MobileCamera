@@ -24,7 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 
-public class MediaExtractActivity extends AppCompatActivity implements View.OnClickListener {
+public class MediaExtractActivity extends BaseActivity implements View.OnClickListener {
     private static final int FILE_SELECT_AUDIO = 0;
     private static final int FILE_SELECT_VIDEO = 1;
     private static final String TAG = "MediaExtractActivity";
