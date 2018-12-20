@@ -7,6 +7,7 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.util.Log;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -17,6 +18,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FileUtil {
     public static File saveFile(String filename, String filepath, byte[] data) throws Exception {
@@ -462,4 +465,30 @@ public class FileUtil {
         }
         return buf;
     }
+
+    /**
+     * 获取文件夹下所有文件集合
+     * @param dirPath
+     * @return
+     */
+    public static List<String> getFileList(String dirPath) {
+        List<String> fileList = new ArrayList<>();
+        try {
+            File file = new File(dirPath);
+
+            File[] files = file.listFiles();
+            for (File f : files) {
+                if (f.isFile()) {
+                    fileList.add(f.getAbsolutePath());
+                } else {
+                    getFileList(f.getAbsolutePath());
+                }
+            }
+        } catch (NullPointerException e) {
+            //ToastUtils.show("出错了："+e.getMessage());
+            Log.i("seedownloadimgact", "出错了");
+        }
+        return fileList;
+    }
+
 }
