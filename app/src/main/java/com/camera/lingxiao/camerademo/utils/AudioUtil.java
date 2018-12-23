@@ -8,6 +8,8 @@ import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.Log;
 
+import com.media.lingxiao.harddecoder.utils.AudioEncoder;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -68,6 +70,7 @@ public class AudioUtil {
         return audioUtil;
     }
 
+    private AudioEncoder mAudioEncoder = new AudioEncoder();
     private boolean startAudioRecord(String fileName) {
         isRecording = true;
         mStartTimeStamp = System.currentTimeMillis();
@@ -98,6 +101,7 @@ public class AudioUtil {
                 int read = audioRecord.read(data,0,recordBufSize);
                 if (read > 0){
                     mAudioFileOutput.write(data,0,read);
+                    mAudioEncoder.startEncodeAacData(data);
                 }
             }
             //stopRecorder();
@@ -184,6 +188,9 @@ public class AudioUtil {
             audioRecord.stop();
             audioRecord.release();
             audioRecord = null;
+        }
+        if (mAudioEncoder != null){
+            mAudioEncoder.stopEncodeAac();
         }
         try {
             mAudioFileOutput.flush();
