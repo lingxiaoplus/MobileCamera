@@ -6,6 +6,7 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
+import android.util.Log;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,14 +15,19 @@ import java.util.Vector;
 
 public class MediaUtil {
     private static Vector<MuxerData> muxerDatas;
-    private static MediaUtil mediaUtil;
-    private static MediaUtil getInstance(){
-        if (mediaUtil == null){
-            synchronized (MediaUtil.class){
-                mediaUtil = new MediaUtil();
-            }
+
+    private int mVideoTrackIndex = -1;
+    private int mAudioTrackIndex = -1;
+    private MediaMuxer mMuxer;
+
+    private MediaFormat mVideoFormat;
+    private MediaFormat mAudioFormat;
+    public MediaUtil(String path){
+        try {
+            mMuxer = new MediaMuxer(path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        return mediaUtil;
     }
     /**
      * 将音频和视频进行合成
@@ -56,6 +62,7 @@ public class MediaUtil {
 
         MediaExtractor videoExtractor = new MediaExtractor();
         videoExtractor.setDataSource(frameVideoPath);
+
         int frameExtractorTrackIndex = -1; //视频轨
         int frameMuxerTrackIndex = -1; //合成后的视频的视频轨
         int frameMaxInputSize = 0; //能获取的视频的最大值
@@ -133,13 +140,7 @@ public class MediaUtil {
     }
 
 
-    public MediaUtil addMuxerData(MuxerData data){
-        if (muxerDatas == null){
-            muxerDatas = new Vector<>();
-        }
-        muxerDatas.add(data);
-        return mediaUtil;
-    }
+
     public void recordeH264toMp4(MediaFormat format,File outPut) throws IOException {
         MediaMuxer mediaMuxer = new MediaMuxer(outPut.getAbsolutePath(),
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -160,6 +161,58 @@ public class MediaUtil {
                 LogUtil.e( "写入混合数据失败!" + e.toString());
             }
         }
+    }
+
+
+    public void addTrack(MediaFormat format,boolean isVideo){
+        if (mAudioTrackIndex != -1 && mVideoTrackIndex != -1){
+            new RuntimeException("already addTrack");
+        }
+
+        int track = mMuxer.addTrack(format);
+        if (isVideo){
+            mVideoFormat = format;
+            mVideoTrackIndex = track;
+            if (mAudioTrackIndex != -1){
+                mMuxer.start();
+            }
+        }else {
+            mAudioFormat = format;
+            mAudioTrackIndex = track;
+            if (mVideoTrackIndex != -1){  //当音频轨和视频轨都添加，才start
+                mMuxer.start();
+            }
+        }
+
+    }
+    public synchronized void putStrem(ByteBuffer outputBuffer,MediaCodec.BufferInfo bufferInfo,boolean isVideo){
+        if (mAudioTrackIndex == -1 || mVideoTrackIndex == -1){
+            LogUtil.d("音频轨和视频轨没有添加");
+        }
+        if (bufferInfo.flags == MediaCodec.BUFFER_FLAG_CODEC_CONFIG){
+
+        }else if (bufferInfo.size != 0){
+            if (isVideo && mVideoTrackIndex == -1){
+                throw new RuntimeException("video is not start");
+            }
+            outputBuffer.position(bufferInfo.offset);
+            outputBuffer.limit(bufferInfo.size + bufferInfo.offset);
+            mMuxer.writeSampleData(isVideo?mVideoTrackIndex:mAudioTrackIndex,outputBuffer,bufferInfo);
+        }
+
+        mMuxer.stop();
+        mMuxer.release();
+        mMuxer = null;
+        mVideoTrackIndex = mAudioTrackIndex = -1;
+        addTrack(mVideoFormat, true);
+        addTrack(mAudioFormat, false);
+        /*try {
+            mMuxer = new MediaMuxer(mFilePath + "-" + ++index + ".mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }*/
+
     }
 
     /**

@@ -5,11 +5,13 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.os.Environment;
+import android.util.Log;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class AudioEncoder {
     private MediaCodec.BufferInfo mBufferInfo;
@@ -20,7 +22,10 @@ public class AudioEncoder {
     private FileOutputStream  fileOutputStream;
     private MediaCodec mMediaCodec;
     private boolean startEncode = false;
-
+    private static int pcmqueuesize = 30;
+    private ArrayBlockingQueue<byte[]> pcmQueue = new ArrayBlockingQueue<>(pcmqueuesize);
+    private boolean isEncoding;
+    private static final String TAG = AudioEncoder.class.getSimpleName();
     public AudioEncoder(){
         try {
             File root = Environment.getExternalStorageDirectory();
@@ -50,50 +55,75 @@ public class AudioEncoder {
             e.printStackTrace();
         }
     }
-
-
-    public void startEncodeAacData(byte[] data) {
-        //dequeueInputBuffer（time）需要传入一个时间值，-1表示一直等待，0表示不等待有可能会丢帧，其他表示等待多少毫秒
-        int inputIndex = mMediaCodec.dequeueInputBuffer(-1);//获取输入缓存的index
-        if (inputIndex >= 0) {
-            ByteBuffer inputByteBuf = inputBufferArray[inputIndex];
-            inputByteBuf.clear();
-            inputByteBuf.put(data);//添加数据
-            inputByteBuf.limit(data.length);//限制ByteBuffer的访问长度
-            mMediaCodec.queueInputBuffer(inputIndex, 0, data.length, 0, 0);//把输入缓存塞回去给MediaCodec
+    public void putPcmData(byte[] buffer) {
+        if (pcmQueue.size() >= pcmqueuesize) {
+            pcmQueue.poll();
         }
+        pcmQueue.add(buffer);
+    }
 
-        int outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 0);//获取输出缓存的index
-        while (outputIndex >= 0 && startEncode) {
-            //获取缓存信息的长度
-            int byteBufSize = mBufferInfo.size;
-            //添加ADTS头部后的长度
-            int bytePacketSize = byteBufSize + 7;
+    public void startEncodeAacData() {
+        Thread aacEncoderThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                byte[] data = null;
+                isEncoding = true;
+                if (pcmQueue.size() > 0){
+                    data = pcmQueue.poll();
+                }
+                while (isEncoding){
+                    if (data != null){
+                        Log.d(TAG, "开始编码pcm为aac"+data.length);
+                        //dequeueInputBuffer（time）需要传入一个时间值，-1表示一直等待，0表示不等待有可能会丢帧，其他表示等待多少毫秒
+                        int inputIndex = mMediaCodec.dequeueInputBuffer(-1);//获取输入缓存的index
+                        if (inputIndex >= 0) {
+                            ByteBuffer inputByteBuf = inputBufferArray[inputIndex];
+                            inputByteBuf.clear();
+                            inputByteBuf.put(data);//添加数据
+                            inputByteBuf.limit(data.length);//限制ByteBuffer的访问长度
+                            mMediaCodec.queueInputBuffer(inputIndex, 0, data.length, 0, 0);//把输入缓存塞回去给MediaCodec
+                        }
 
-            ByteBuffer outPutBuf = outputBufferArray[outputIndex];
-            outPutBuf.position(mBufferInfo.offset);
-            outPutBuf.limit(mBufferInfo.offset + mBufferInfo.size);
+                        int outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 0);//获取输出缓存的index
+                        while (outputIndex >= 0 && startEncode) {
+                            //获取缓存信息的长度
+                            int byteBufSize = mBufferInfo.size;
+                            //添加ADTS头部后的长度
+                            int bytePacketSize = byteBufSize + 7;
 
-            byte[] targetByte = new byte[bytePacketSize];
-            //添加ADTS头部
-            addADTStoPacket(targetByte, bytePacketSize);
+                            ByteBuffer outPutBuf = outputBufferArray[outputIndex];
+                            outPutBuf.position(mBufferInfo.offset);
+                            outPutBuf.limit(mBufferInfo.offset + mBufferInfo.size);
+
+                            byte[] targetByte = new byte[bytePacketSize];
+                            //添加ADTS头部
+                            addADTStoPacket(targetByte, bytePacketSize);
             /*
             get（byte[] dst,int offset,int length）:ByteBuffer从position位置开始读，读取length个byte，并写入dst下
             标从offset到offset + length的区域
              */
-            outPutBuf.get(targetByte, 7, byteBufSize);
+                            outPutBuf.get(targetByte, 7, byteBufSize);
 
-            outPutBuf.position(mBufferInfo.offset);
+                            outPutBuf.position(mBufferInfo.offset);
 
-            try {
-                fileOutputStream.write(targetByte);
-            } catch (IOException e) {
-                e.printStackTrace();
+                            try {
+                                fileOutputStream.write(targetByte);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            //释放
+                            mMediaCodec.releaseOutputBuffer(outputIndex, false);
+                            outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 0);
+                        }
+                    }else {
+                        Log.d(TAG, "data is null !");
+
+                    }
+                }
+
             }
-            //释放
-            mMediaCodec.releaseOutputBuffer(outputIndex, false);
-            outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 0);
-        }
+        });
+        aacEncoderThread.start();
 
     }
 
@@ -102,6 +132,7 @@ public class AudioEncoder {
             mMediaCodec.stop();
             mMediaCodec.release();
             mMediaCodec = null;
+            isEncoding = false;
             try {
                 fileOutputStream.flush();
                 fileOutputStream.close();
@@ -115,7 +146,8 @@ public class AudioEncoder {
 
     /**
      * 给编码出的aac裸流添加adts头字段
-     *
+     * aac又分为两种格式 ADTS: 允许在音频数据流的任意帧解码，也就是说，它每一帧都有信息头
+     * ADIF: 音频数据交换格式。这种格式明确解码必须在明确定义的音频数据流的开始处进行，常用于磁盘文件中
      * @param packet    要空出前7个字节，否则会搞乱数据
      * @param packetLen
      */

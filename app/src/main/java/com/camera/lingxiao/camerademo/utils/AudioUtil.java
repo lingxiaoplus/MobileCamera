@@ -70,7 +70,7 @@ public class AudioUtil {
         return audioUtil;
     }
 
-    private AudioEncoder mAudioEncoder = new AudioEncoder();
+    private AudioEncoder mAudioEncoder;
     private boolean startAudioRecord(String fileName) {
         isRecording = true;
         mStartTimeStamp = System.currentTimeMillis();
@@ -101,7 +101,7 @@ public class AudioUtil {
                 int read = audioRecord.read(data,0,recordBufSize);
                 if (read > 0){
                     mAudioFileOutput.write(data,0,read);
-                    mAudioEncoder.startEncodeAacData(data);
+                    mAudioEncoder.putPcmData(data);
                 }
             }
             //stopRecorder();
@@ -176,6 +176,8 @@ public class AudioUtil {
     public void startRecord(String fileName){
         this.mRecordFileName = fileName;
         new Thread(mAudioRunnableTask).start();
+        mAudioEncoder = new AudioEncoder();
+        mAudioEncoder.startEncodeAacData();
     }
 
     public void startPlay(String fileName){
