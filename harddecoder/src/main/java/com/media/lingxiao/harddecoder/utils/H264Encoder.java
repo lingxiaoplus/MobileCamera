@@ -130,6 +130,7 @@ public class H264Encoder {
                             }
 
                             MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+
                             int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
                             while (outputBufferIndex >= 0) {
                                 ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];

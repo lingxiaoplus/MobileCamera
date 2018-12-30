@@ -39,9 +39,9 @@ public class AudioEncoder {
             mediaFormat.setString(MediaFormat.KEY_MIME, mime);
             mediaFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
             mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
-            mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
-            mediaFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 1024 * 1024);
-            mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);
+            mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2); //声道
+            mediaFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 1024 * 100);//作用于inputBuffer的大小
+            mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);//采样率
 
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             //start（）后进入执行状态，才能做后续的操作
@@ -55,6 +55,7 @@ public class AudioEncoder {
             e.printStackTrace();
         }
     }
+
     public void putPcmData(byte[] buffer) {
         if (pcmQueue.size() >= pcmqueuesize) {
             pcmQueue.poll();
@@ -68,12 +69,9 @@ public class AudioEncoder {
             public void run() {
                 byte[] data = null;
                 isEncoding = true;
-                if (pcmQueue.size() > 0){
-                    data = pcmQueue.poll();
-                }
                 while (isEncoding){
-                    if (data != null){
-                        Log.d(TAG, "开始编码pcm为aac"+data.length);
+                    if (pcmQueue.size() > 0){
+                        data = pcmQueue.poll();
                         //dequeueInputBuffer（time）需要传入一个时间值，-1表示一直等待，0表示不等待有可能会丢帧，其他表示等待多少毫秒
                         int inputIndex = mMediaCodec.dequeueInputBuffer(-1);//获取输入缓存的index
                         if (inputIndex >= 0) {
@@ -83,8 +81,9 @@ public class AudioEncoder {
                             inputByteBuf.limit(data.length);//限制ByteBuffer的访问长度
                             mMediaCodec.queueInputBuffer(inputIndex, 0, data.length, 0, 0);//把输入缓存塞回去给MediaCodec
                         }
-
-                        int outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 0);//获取输出缓存的index
+                    }
+                    if (data != null){
+                        int outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);//获取输出缓存的index
                         while (outputIndex >= 0 && startEncode) {
                             //获取缓存信息的长度
                             int byteBufSize = mBufferInfo.size;
@@ -113,11 +112,11 @@ public class AudioEncoder {
                             }
                             //释放
                             mMediaCodec.releaseOutputBuffer(outputIndex, false);
-                            outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 0);
+                            outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);
                         }
                     }else {
-                        Log.d(TAG, "data is null !");
 
+                        Log.d(TAG, "data is null !");
                     }
                 }
 
@@ -149,7 +148,6 @@ public class AudioEncoder {
      * aac又分为两种格式 ADTS: 允许在音频数据流的任意帧解码，也就是说，它每一帧都有信息头
      * ADIF: 音频数据交换格式。这种格式明确解码必须在明确定义的音频数据流的开始处进行，常用于磁盘文件中
      * @param packet    要空出前7个字节，否则会搞乱数据
-     * @param packetLen
      */
     private void addADTStoPacket(byte[] packet, int packetLen) {
         int profile = 2;  //AAC LC
@@ -163,4 +161,5 @@ public class AudioEncoder {
         packet[5] = (byte) (((packetLen & 7) << 5) + 0x1F);
         packet[6] = (byte) 0xFC;
     }
+
 }

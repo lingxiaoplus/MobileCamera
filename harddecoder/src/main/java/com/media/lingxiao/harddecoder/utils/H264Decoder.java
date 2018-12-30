@@ -154,9 +154,11 @@ public class H264Decoder {
         }
         //解码后的数据，包含每一个buffer的元数据信息，例如偏差，在相关解码器中有效的数据大小
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+        //获取解码得到的byte[]数据 10000同样为等待时间 同上-1代表一直等待，0代表不等待。此处单位为微秒
+        //此处建议不要填-1 有些时候并没有数据输出，那么他就会一直卡在这 等待
         int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
-        while (outputBufferIndex >= 0) {
-            //对outputbuffer的处理完后，调用这个函数把buffer重新返回给codec类。
+        while (outputBufferIndex >= 0) {//每次解码完成的数据不一定能一次吐出 所以用while循环，保证解码器吐出所有数据
+            //对outputbuffer的处理完后，调用这个函数把buffer重新返回给codec类。此操作一定要做，不然MediaCodec用完所有的Buffer后 将不能向外输出数据
             mCodec.releaseOutputBuffer(outputBufferIndex, true);
             outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, 0);
         }

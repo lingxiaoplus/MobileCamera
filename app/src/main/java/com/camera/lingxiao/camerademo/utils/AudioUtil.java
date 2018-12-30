@@ -19,11 +19,13 @@ public class AudioUtil {
     private static final String TAG = "AudioUtil";
     private AudioRecord audioRecord = null;  // 声明 AudioRecord 对象
     private int recordBufSize = 0; // 声明recoordBufffer的大小字段
-    //所有android系统都支持
+
+    //所有android系统都支持  采样率：采样率越高，听到的声音和看到的图像就越连贯
+    // 基本上高于44.1kHZ采样的声音，绝大部分人已经觉察不到其中的分别了
     private int sampleRate = 44100;
     //单声道输入
     private int channelConfig = AudioFormat.CHANNEL_IN_MONO;
-    //PCM_16是所有android系统都支持的
+    //PCM_16是所有android系统都支持的  16位的声音就是人类能听到的极限了，再高就听不见了 位数越高声音越清晰
     private int autioFormat = AudioFormat.ENCODING_PCM_16BIT;
     private long mStartTimeStamp;
     private File mAudioFile;
@@ -87,6 +89,7 @@ public class AudioUtil {
             recordBufSize = AudioRecord.getMinBufferSize(sampleRate,
                     channelConfig,
                     autioFormat);
+            Log.e(TAG, "最小的buffer大小: " + recordBufSize);
             audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
                     sampleRate,
                     channelConfig,
@@ -129,7 +132,8 @@ public class AudioUtil {
             int mode= AudioTrack.MODE_STREAM;
 
             //计算最小buffer大小
-            int minBufferSize=AudioTrack.getMinBufferSize(sampleRate,channelConfig,audioFormat);
+            int minBufferSize = AudioTrack.getMinBufferSize(sampleRate,channelConfig,audioFormat);
+
             byte data[] = new byte[minBufferSize];
             //构造AudioTrack  不能小于AudioTrack的最低要求，也不能小于我们每次读的大小
             mAudioTrack = new AudioTrack(streamType,sampleRate,channelConfig,audioFormat,

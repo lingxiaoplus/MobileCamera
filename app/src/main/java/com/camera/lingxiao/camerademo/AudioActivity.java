@@ -12,7 +12,14 @@ import com.camera.lingxiao.camerademo.utils.AudioUtil;
 import com.camera.lingxiao.camerademo.utils.FileUtil;
 import com.camera.lingxiao.camerademo.utils.LogUtil;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 
@@ -26,6 +33,7 @@ import io.reactivex.schedulers.Schedulers;
 
 public class AudioActivity extends BaseActivity {
     private Button mBtnAudio,mBtnPlay;
+    private Button mBtnEncoder,mBtnDecoder;
     private String mFileName = "test";
     private String mPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/AudioSimple/";
 
@@ -35,12 +43,14 @@ public class AudioActivity extends BaseActivity {
         setContentView(R.layout.activity_audio);
         mBtnAudio = findViewById(R.id.button_audio);
         mBtnPlay = findViewById(R.id.button_play);
+        mBtnEncoder = findViewById(R.id.button_encode);
+        mBtnDecoder = findViewById(R.id.bt_decoder);
         mBtnAudio.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 if (AudioUtil.getInstance().isRecording()){
                     AudioUtil.getInstance().stopAudioRecord();
-                    mBtnAudio.setText("开始录音");
+                    mBtnAudio.setText("使用AudioTrack录音");
                 }else {
                     mBtnAudio.setText("停止录音");
                     AudioUtil.getInstance().startRecord(mFileName);
@@ -53,7 +63,7 @@ public class AudioActivity extends BaseActivity {
             public void onClick(View view) {
                 if (AudioUtil.getInstance().isPlaying()){
                     AudioUtil.getInstance().stopPlay();
-                    mBtnPlay.setText("开始播放");
+                    mBtnPlay.setText("使用AudioTrack播放");
                 }else {
                     showProgressDialog();
                     Observable.create(new ObservableOnSubscribe<String[]>() {
@@ -96,8 +106,12 @@ public class AudioActivity extends BaseActivity {
             }
         });
 
+        mBtnEncoder.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
 
-
+            }
+        });
 
     }
 
