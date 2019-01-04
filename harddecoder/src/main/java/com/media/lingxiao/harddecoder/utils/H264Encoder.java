@@ -27,6 +27,7 @@ public class H264Encoder {
     private static String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/testYuv.h264";
     private static final int TIMEOUT_USEC = 12000;
     private BufferedOutputStream outputStream;
+    private final MediaUtil mediaUtil;
 
     private void createfile(){
         File file = new File(path);
@@ -41,11 +42,13 @@ public class H264Encoder {
     }
 
     private int bit_rate = 3; //可以设置为 1 3 5
-    public H264Encoder(int width, int height, int framerate, int bitrate) {
+    public H264Encoder(int width, int height, int framerate, int bitrate,EncoderParams params) {
         m_width = width;
         m_height = height;
         m_framerate = framerate;
 
+        mediaUtil = MediaUtil.getDefault();
+        mediaUtil.setVideoPath(params.getVideoPath());
         MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", width, height);
         //颜色空间设置为yuv420sp
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
@@ -132,6 +135,11 @@ public class H264Encoder {
                             MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
 
                             int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
+                            if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
+                                //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
+                                MediaFormat format = mediaCodec.getOutputFormat();
+                                mediaUtil.addTrack(format,true);
+                            }
                             while (outputBufferIndex >= 0) {
                                 ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
                                 byte[] outData = new byte[bufferInfo.size];
@@ -148,11 +156,13 @@ public class H264Encoder {
                                         h264Listener.onPreview(keyframe,m_width,m_height);
                                     }
                                     outputStream.write(keyframe, 0, keyframe.length);
+                                    mediaUtil.putStrem(outputBuffer, bufferInfo, true);
                                 }else{
                                     if (h264Listener != null){
                                         h264Listener.onPreview(outData,m_width,m_height);
                                     }
                                     outputStream.write(outData, 0, outData.length);
+                                    mediaUtil.putStrem(outputBuffer, bufferInfo, true);
                                 }
 
                                 mediaCodec.releaseOutputBuffer(outputBufferIndex, false);

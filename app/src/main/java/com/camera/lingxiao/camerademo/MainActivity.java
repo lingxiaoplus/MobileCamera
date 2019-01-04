@@ -18,8 +18,10 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.camera.lingxiao.camerademo.utils.AudioUtil;
 import com.camera.lingxiao.camerademo.utils.CameraUtil;
 import com.camera.lingxiao.camerademo.utils.LogUtil;
+import com.media.lingxiao.harddecoder.utils.EncoderParams;
 import com.media.lingxiao.harddecoder.utils.H264Encoder;
 import com.media.lingxiao.harddecoder.utils.Server;
 import com.media.lingxiao.harddecoder.utils.model.VideoStreamModel;
@@ -124,14 +126,18 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
             public void onClick(View v) {
                 //启动线程编码  注意宽高
                 if (null != mCameraUtil && null == mH264Encoder) {
-                    mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate);
+                    EncoderParams params = new EncoderParams();
+                    params.setVideoPath(Environment.getExternalStorageDirectory().getAbsolutePath()+"/testYuv.mp4");
+                    mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate,params);
                 }
                 if (!mH264Encoder.isEncodering()) {
                     mH264Encoder.StartEncoderThread();
+                    AudioUtil.getInstance().startRecord("testmp4");
                     mH264Encoder.setPreviewListner(MainActivity.this);
                     mBtnEncoder.setText("停止编码");
                 } else {
                     mH264Encoder.stopThread();
+                    AudioUtil.getInstance().stopAudioRecord();
                     mBtnEncoder.setText("编码h264");
                 }
             }

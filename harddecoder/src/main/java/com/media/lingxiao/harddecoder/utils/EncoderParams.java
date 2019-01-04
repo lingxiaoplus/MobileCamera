@@ -1,4 +1,4 @@
-package com.camera.lingxiao.camerademo;
+package com.media.lingxiao.harddecoder.utils;
 
 public class EncoderParams {
     // 码率等级

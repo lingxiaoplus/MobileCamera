@@ -26,8 +26,11 @@ public class AudioEncoder {
     private ArrayBlockingQueue<byte[]> pcmQueue = new ArrayBlockingQueue<>(pcmqueuesize);
     private boolean isEncoding;
     private static final String TAG = AudioEncoder.class.getSimpleName();
+    private MediaUtil mediaUtil;
+
     public AudioEncoder(){
         try {
+            mediaUtil = MediaUtil.getDefault();
             File root = Environment.getExternalStorageDirectory();
             File  fileAAc = new File(root,"生成的aac.aac");
             if(!fileAAc.exists()){
@@ -84,6 +87,13 @@ public class AudioEncoder {
                     }
                     if (data != null){
                         int outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);//获取输出缓存的index
+
+                        if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
+                            //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
+                            MediaFormat format = mMediaCodec.getOutputFormat();
+                            mediaUtil.addTrack(format,false);
+                        }
+
                         while (outputIndex >= 0 && startEncode) {
                             //获取缓存信息的长度
                             int byteBufSize = mBufferInfo.size;
@@ -104,7 +114,7 @@ public class AudioEncoder {
                             outPutBuf.get(targetByte, 7, byteBufSize);
 
                             outPutBuf.position(mBufferInfo.offset);
-
+                            mediaUtil.putStrem(outPutBuf,mBufferInfo,false);
                             try {
                                 fileOutputStream.write(targetByte);
                             } catch (IOException e) {
