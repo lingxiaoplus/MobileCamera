@@ -104,7 +104,7 @@ public class AudioUtil {
                 int read = audioRecord.read(data,0,recordBufSize);
                 if (read > 0){
                     mAudioFileOutput.write(data,0,read);
-                    mAudioEncoder.putPcmData(data);
+
                 }
             }
             //stopRecorder();
@@ -180,8 +180,6 @@ public class AudioUtil {
     public void startRecord(String fileName){
         this.mRecordFileName = fileName;
         new Thread(mAudioRunnableTask).start();
-        mAudioEncoder = new AudioEncoder();
-        mAudioEncoder.startEncodeAacData();
     }
 
     public void startPlay(String fileName){
