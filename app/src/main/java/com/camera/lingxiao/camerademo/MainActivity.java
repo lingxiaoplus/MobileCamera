@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
+import android.media.AudioFormat;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -21,6 +23,7 @@ import android.widget.Toast;
 import com.camera.lingxiao.camerademo.utils.AudioUtil;
 import com.camera.lingxiao.camerademo.utils.CameraUtil;
 import com.camera.lingxiao.camerademo.utils.LogUtil;
+import com.media.lingxiao.harddecoder.utils.AudioEncoder;
 import com.media.lingxiao.harddecoder.utils.EncoderParams;
 import com.media.lingxiao.harddecoder.utils.H264Encoder;
 import com.media.lingxiao.harddecoder.utils.Server;
@@ -58,6 +61,7 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
     private H264Encoder mH264Encoder;
     private Button mBtnEncoder, mBtnDecoder;
     private Server mServer;
+    private AudioEncoder mAudioEncoder;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -125,19 +129,28 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
             @Override
             public void onClick(View v) {
                 //启动线程编码  注意宽高
-                if (null != mCameraUtil && null == mH264Encoder) {
+                if (null != mCameraUtil && null == mH264Encoder || mAudioEncoder == null) {
                     EncoderParams params = new EncoderParams();
+                    params.setAudioSampleRate(44100);
+                    params.setAudioBitrate(1024*100);
+                    params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
+                    params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
+                    params.setAudioSouce(MediaRecorder.AudioSource.MIC);
                     params.setVideoPath(Environment.getExternalStorageDirectory().getAbsolutePath()+"/testYuv.mp4");
                     mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate,params);
+
+                    mAudioEncoder = new AudioEncoder(params);
                 }
+
                 if (!mH264Encoder.isEncodering()) {
                     mH264Encoder.StartEncoderThread();
                     AudioUtil.getInstance().startRecord("testmp4");
+                    mAudioEncoder.startEncodeAacData();
                     mH264Encoder.setPreviewListner(MainActivity.this);
                     mBtnEncoder.setText("停止编码");
                 } else {
                     mH264Encoder.stopThread();
-                    AudioUtil.getInstance().stopAudioRecord();
+                    mAudioEncoder.stopEncodeAac();
                     mBtnEncoder.setText("编码h264");
                 }
             }
