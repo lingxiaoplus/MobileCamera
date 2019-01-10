@@ -238,6 +238,16 @@ public class MediaUtil {
 
     }
 
+
+    public void release(){
+        if (mMuxer != null){
+            if (mAudioTrackIndex != -1 && mVideoTrackIndex != -1){
+                mMuxer.stop();
+                mMuxer.release();
+                mMuxer = null;
+            }
+        }
+    }
     /**
      * 封装需要传输的数据类型
      */

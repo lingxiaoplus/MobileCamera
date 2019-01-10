@@ -5,14 +5,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.media.AudioFormat;
 import android.media.MediaRecorder;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Environment;
-import android.support.annotation.NonNull;
-import android.support.v7.app.AppCompatActivity;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -38,7 +42,7 @@ import de.hdodenhof.circleimageview.CircleImageView;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
 
-public class MainActivity extends BaseActivity implements EasyPermissions.PermissionCallbacks ,H264Encoder.PreviewFrameListener{
+public class MainActivity extends BaseActivity implements EasyPermissions.PermissionCallbacks, H264Encoder.PreviewFrameListener {
     private String[] perms = {Manifest.permission.CAMERA,
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -62,6 +66,11 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
     private Button mBtnEncoder, mBtnDecoder;
     private Server mServer;
     private AudioEncoder mAudioEncoder;
+    private SensorManager mSensorManager;
+    private long timestamp;
+    private static final float NS2S = 1.0f / 1000000000.0f;;
+    private static final String TAG = MainActivity.class.getSimpleName();
+    private SensorEventListener mSensorEventListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,7 +86,48 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
         mBtnDecoder = findViewById(R.id.bt_decoder);
         mHolder = mSurfaceView.getHolder();
         methodRequiresTwoPermission();
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        if (mSensorManager != null) {
 
+            mSensorEventListener = new SensorEventListener() {
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                    if (event.sensor == null) {    //如果没有传感器事件则返回
+                        Log.i(TAG, "没有传感器事件,返回");
+                        return;
+                    }
+                    //新建加速度计变化事件
+                    if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {//传感器发生改变获取加速度计传感器的数据
+                        if (timestamp != 0) {
+                            // 得到两次检测到手机旋转的时间差（纳秒），并将其转化为秒
+                            final float dT = (event.timestamp - timestamp) * NS2S;
+                            // 将手机在各个轴上的旋转角度相加，即可得到当前位置相对于初始位置的旋转弧度
+                            float x = event.values[0] * dT;
+                            float y = event.values[1] * dT;
+                            float z = event.values[2] * dT;
+                            // 将弧度转化为角度
+                            float anglex = (float) Math.toDegrees(x);
+                            float angley = (float) Math.toDegrees(y);
+                            float anglez = (float) Math.toDegrees(z);
+
+                            Log.i(TAG, "anglex:  "+ anglex);
+                            //Log.i(TAG, "angley:  "+ angley);
+                            //Log.i(TAG, "anglez:  "+ anglez);
+                            if (angley > 80) Log.i(TAG, "角度大于80 "+ String.valueOf(angley));
+                            if (angley < -80) Log.i(TAG, "角度小于80 "+ String.valueOf(angley));
+                        }
+                        timestamp = event.timestamp;
+                    }
+                }
+
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+                }
+            };
+            mSensorManager.registerListener(mSensorEventListener,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_UI);
+        }
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -132,12 +182,12 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                 if (null != mCameraUtil && null == mH264Encoder || mAudioEncoder == null) {
                     EncoderParams params = new EncoderParams();
                     params.setAudioSampleRate(44100);
-                    params.setAudioBitrate(1024*100);
+                    params.setAudioBitrate(1024 * 100);
                     params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
                     params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
                     params.setAudioSouce(MediaRecorder.AudioSource.MIC);
-                    params.setVideoPath(Environment.getExternalStorageDirectory().getAbsolutePath()+"/testYuv.mp4");
-                    mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate,params);
+                    params.setVideoPath(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testYuv.mp4");
+                    mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
 
                     mAudioEncoder = new AudioEncoder(params);
                 }
@@ -168,7 +218,8 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
 
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
@@ -214,13 +265,14 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
     private boolean isRecorder;
     private long mSeq_no0;
     private long mSeq_no1;
+
     //h264回调
     @Override
     public void onPreview(byte[] data, int width, int height) {
-         //硬编码之后的h264数据
+        //硬编码之后的h264数据
         //发送数据
-        if (null != mServer){
-            byte[] h264Data = Arrays.copyOf(data,data.length);
+        if (null != mServer) {
+            byte[] h264Data = Arrays.copyOf(data, data.length);
             VideoStreamModel model = new VideoStreamModel();
             mSeq_no0++;
             mSeq_no1++;
@@ -282,7 +334,7 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                             );
 
                             if (isRecorder) {
-                                Toast.makeText(getApplicationContext(),"文件保存在："+filePath,
+                                Toast.makeText(getApplicationContext(), "文件保存在：" + filePath,
                                         Toast.LENGTH_LONG).show();
                                 LogUtil.i("正在录制");
                                 recorderBtn.setText("停止录制");
@@ -341,6 +393,10 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
         super.onDestroy();
         if (mServer != null) {
             mServer.stop();
+        }
+
+        if (mSensorManager != null){
+            mSensorManager.unregisterListener(mSensorEventListener,mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
         }
     }
 }

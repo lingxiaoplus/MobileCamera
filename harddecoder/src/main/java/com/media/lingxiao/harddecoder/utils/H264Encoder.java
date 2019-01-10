@@ -28,6 +28,7 @@ public class H264Encoder {
     private static final int TIMEOUT_USEC = 12000;
     private BufferedOutputStream outputStream;
     private final MediaUtil mediaUtil;
+    private static final String TAG = H264Encoder.class.getSimpleName();
 
     private void createfile(){
         File file = new File(path);
@@ -94,7 +95,7 @@ public class H264Encoder {
         YUVQueue.add(buffer);
     }
 
-
+    private boolean isAddKeyFrame;
     public void StartEncoderThread(){
         Thread EncoderThread = new Thread(new Runnable() {
             @SuppressLint("NewApi")
@@ -156,14 +157,27 @@ public class H264Encoder {
                                         h264Listener.onPreview(keyframe,m_width,m_height);
                                     }
                                     outputStream.write(keyframe, 0, keyframe.length);
-                                    mediaUtil.putStrem(outputBuffer, bufferInfo, true);
                                 }else{
                                     if (h264Listener != null){
                                         h264Listener.onPreview(outData,m_width,m_height);
                                     }
                                     outputStream.write(outData, 0, outData.length);
-                                    mediaUtil.putStrem(outputBuffer, bufferInfo, true);
                                 }
+                                // 根据NALU类型判断帧类型
+                                int type = outputBuffer.get(4) & 0x1F;
+                                if (type == 5){
+                                    mediaUtil.putStrem(outputBuffer, bufferInfo, true);
+                                    isAddKeyFrame = true;
+                                    Log.i(TAG,"------编码混合视频数据 关键帧-----" + bufferInfo.size);
+                                }else if (type == 7 || type == 8){
+                                    Log.i(TAG, "------PPS、SPS帧(非图像数据)，忽略-------");
+                                }else {
+                                    if (isAddKeyFrame){
+                                        mediaUtil.putStrem(outputBuffer, bufferInfo, true);
+                                        Log.i(TAG,"------编码混合视频数据 普通帧-----" + bufferInfo.size);
+                                    }
+                                }
+
 
                                 mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                                 outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
@@ -203,6 +217,7 @@ public class H264Encoder {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        mediaUtil.release();
     }
     /**
      * 计算pts

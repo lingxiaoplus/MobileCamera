@@ -10,8 +10,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.support.annotation.RequiresApi;
-import android.support.v7.app.AppCompatActivity;
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -22,7 +22,6 @@ import com.camera.lingxiao.camerademo.utils.MediaUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 
 public class MediaExtractActivity extends BaseActivity implements View.OnClickListener {
     private static final int FILE_SELECT_AUDIO = 0;

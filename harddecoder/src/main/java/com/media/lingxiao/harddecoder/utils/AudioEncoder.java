@@ -89,12 +89,12 @@ public class AudioEncoder {
     }
 
     public void startEncodeAacData() {
+        isEncoding = true;
         Thread aacEncoderThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                isEncoding = true;
                 while (isEncoding){
-                    if (mAudioRecord != null){
+                    if (mAudioRecord != null && mMediaCodec != null){
                         byte[] audioBuf = new byte[mAudioRecordBufferSize];
                         int readBytes = mAudioRecord.read(audioBuf,0,mAudioRecordBufferSize);
                         if (readBytes > 0){
@@ -103,12 +103,17 @@ public class AudioEncoder {
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }*/
-                            encodeAudioBytes(audioBuf,readBytes);
+                            try {
+                                encodeAudioBytes(audioBuf,readBytes);
+                            }catch (Exception e){
+                                e.printStackTrace();
+                            }
+
                         }
                     }
                 }
-                stopEncodeAac();
                 stopAudioRecord();
+                stopEncodeAac();
             }
         });
         aacEncoderThread.start();
@@ -135,7 +140,7 @@ public class AudioEncoder {
         do {
             outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);
             if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER){
-                Log.i(TAG,"获得编码器输出缓存区超时");
+                //Log.i(TAG,"获得编码器输出缓存区超时");
             }else if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
                 //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
                 MediaFormat format = mMediaCodec.getOutputFormat();
@@ -165,10 +170,11 @@ public class AudioEncoder {
                 //释放
                 mMediaCodec.releaseOutputBuffer(outputIndex, false);
             }
-        } while (outputIndex >= 0);
+        } while (outputIndex >= 0 && isEncoding);
     }
 
     public void stopEncodeAac(){
+        stopAudioRecord();
         if (mMediaCodec != null){
             mMediaCodec.stop();
             mMediaCodec.release();
@@ -181,12 +187,12 @@ public class AudioEncoder {
                 e.printStackTrace();
             }
         }
-        stopAudioRecord();
+        mediaUtil.release();
     }
 
     private long prevPresentationTimes = 0;
     private long getPTSUs(){
-        long result = System.nanoTime()/1000;
+        long result = System.nanoTime() / 1000;
         if(result < prevPresentationTimes){
             result = (prevPresentationTimes  - result ) + result;
         }

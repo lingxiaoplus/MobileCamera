@@ -2,25 +2,15 @@ package com.camera.lingxiao.camerademo;
 
 import android.content.DialogInterface;
 import android.os.Environment;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
 import com.camera.lingxiao.camerademo.utils.AudioUtil;
 import com.camera.lingxiao.camerademo.utils.FileUtil;
-import com.camera.lingxiao.camerademo.utils.LogUtil;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
 import java.util.List;
 
 import io.reactivex.Observable;

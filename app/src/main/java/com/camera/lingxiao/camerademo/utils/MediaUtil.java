@@ -4,9 +4,6 @@ import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import android.os.Build;
-import android.support.annotation.RequiresApi;
-import android.util.Log;
 
 import java.io.File;
 import java.io.IOException;

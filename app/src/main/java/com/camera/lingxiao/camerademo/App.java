@@ -9,6 +9,6 @@ public class App extends Application{
     @Override
     public void onCreate() {
         super.onCreate();
-        //CrashHandler.getInstance().init(this,true);
+        CrashHandler.getInstance().init(this,true);
     }
 }
