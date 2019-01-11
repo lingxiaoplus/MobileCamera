@@ -24,12 +24,14 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.camera.lingxiao.camerademo.crash.ContentValue;
 import com.camera.lingxiao.camerademo.utils.AudioUtil;
 import com.camera.lingxiao.camerademo.utils.CameraUtil;
 import com.camera.lingxiao.camerademo.utils.LogUtil;
 import com.media.lingxiao.harddecoder.utils.AudioEncoder;
 import com.media.lingxiao.harddecoder.utils.EncoderParams;
 import com.media.lingxiao.harddecoder.utils.H264Encoder;
+import com.media.lingxiao.harddecoder.utils.H264EncoderConsumer;
 import com.media.lingxiao.harddecoder.utils.Server;
 import com.media.lingxiao.harddecoder.utils.model.VideoStreamModel;
 import com.media.lingxiao.harddecoder.utils.tlv.ServerConfig;
@@ -63,7 +65,9 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
     private int framerate = 30;
     private int biterate = 8500 * 1000;
     private H264Encoder mH264Encoder;
+    private H264EncoderConsumer mH264EncoderConsumer;
     private Button mBtnEncoder, mBtnDecoder;
+    private Button mBtnMuxer;
     private Server mServer;
     private AudioEncoder mAudioEncoder;
     private SensorManager mSensorManager;
@@ -84,6 +88,8 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
         recorderBtn = findViewById(R.id.bt_recode);
         mBtnEncoder = findViewById(R.id.bt_encoder);
         mBtnDecoder = findViewById(R.id.bt_decoder);
+        mBtnMuxer = findViewById(R.id.bt_muxer);
+
         mHolder = mSurfaceView.getHolder();
         methodRequiresTwoPermission();
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -110,7 +116,7 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                             float angley = (float) Math.toDegrees(y);
                             float anglez = (float) Math.toDegrees(z);
 
-                            Log.i(TAG, "anglex:  "+ anglex);
+                            //Log.i(TAG, "anglex:  "+ anglex);
                             //Log.i(TAG, "angley:  "+ angley);
                             //Log.i(TAG, "anglez:  "+ anglez);
                             if (angley > 80) Log.i(TAG, "角度大于80 "+ String.valueOf(angley));
@@ -186,7 +192,7 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                     params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
                     params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
                     params.setAudioSouce(MediaRecorder.AudioSource.MIC);
-                    params.setVideoPath(Environment.getExternalStorageDirectory().getAbsolutePath() + "/testYuv.mp4");
+                    params.setVideoPath(ContentValue.MAIN_PATH + "/testYuv.mp4");
                     mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
 
                     mAudioEncoder = new AudioEncoder(params);
@@ -214,6 +220,38 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                 startActivityForResult(intent, 1);
             }
         });
+
+        mBtnMuxer.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                //启动线程编码  注意宽高
+                if (null != mCameraUtil && null == mH264EncoderConsumer || mAudioEncoder == null) {
+                    EncoderParams params = new EncoderParams();
+                    params.setAudioSampleRate(44100);
+                    params.setAudioBitrate(1024 * 100);
+                    params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
+                    params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
+                    params.setAudioSouce(MediaRecorder.AudioSource.MIC);
+                    params.setVideoPath(ContentValue.MAIN_PATH + "/testYuv.mp4");
+                    mH264EncoderConsumer = new H264EncoderConsumer(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
+
+                    mAudioEncoder = new AudioEncoder(params);
+                }
+
+                if (!mH264EncoderConsumer.isEncodering()) {
+                    mH264EncoderConsumer.StartEncoderThread();
+                    AudioUtil.getInstance().startRecord("testmp4");
+                    mAudioEncoder.startEncodeAacData();
+                    mH264EncoderConsumer.setPreviewListner(MainActivity.this);
+                    mBtnMuxer.setText("停止混合编码");
+                } else {
+                    mH264EncoderConsumer.stopThread();
+                    mAudioEncoder.stopEncodeAac();
+                    mBtnMuxer.setText("音视频混合");
+                }
+            }
+        });
+
     }
 
 
@@ -312,6 +350,9 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                         if (null != mH264Encoder) {
                             //给队列丢数据
                             mH264Encoder.putYUVData(data);
+                        }
+                        if (mH264EncoderConsumer != null){
+                            mH264EncoderConsumer.putYUVData(data);
                         }
                     }
                 });

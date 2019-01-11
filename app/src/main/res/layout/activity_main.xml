@@ -37,6 +37,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="解码h264"/>
+        <Button
+            android:id="@+id/bt_muxer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="音视频混合"/>
         <TextView
             android:id="@+id/tv_recode_time"
             android:layout_width="wrap_content"

@@ -8,6 +8,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Button;
 
+import com.camera.lingxiao.camerademo.crash.ContentValue;
+
+import java.io.File;
 import java.util.List;
 
 import pub.devrel.easypermissions.AppSettingsDialog;
@@ -65,7 +68,7 @@ public class SplashActivity extends BaseActivity implements View.OnClickListener
 
     @Override
     public void onPermissionsGranted(int requestCode, @NonNull List<String> perms) {
-
+        createPath();
     }
 
     @Override
@@ -86,6 +89,20 @@ public class SplashActivity extends BaseActivity implements View.OnClickListener
         if (!EasyPermissions.hasPermissions(this, perms)) {
             EasyPermissions.requestPermissions(this, "需要同意权限",
                     RC_CAMERA_AND_LOCATION, perms);
+        }else {
+            createPath();
+        }
+    }
+
+    private void createPath() {
+        File rootDir = new File(ContentValue.MAIN_PATH);
+        if (rootDir.exists()){
+            if (rootDir.isFile()){
+                rootDir.delete();
+                rootDir.mkdirs();
+            }
+        }else {
+            rootDir.mkdirs();
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.camera.lingxiao.camerademo.crash;
 
+import android.os.Environment;
+
 /**
  * Created by lingxiao on 2017/12/26.
  */
@@ -22,5 +24,7 @@ public class ContentValue {
      */
     public static final String TIME_START = "08:00:00"; //开始时间段
     public static final String TIME_END = "13:03:00";   //结束时间段
+
+    public static final String MAIN_PATH = Environment.getExternalStorageDirectory().getAbsolutePath() + "/MediaDemoPath";
 
 }

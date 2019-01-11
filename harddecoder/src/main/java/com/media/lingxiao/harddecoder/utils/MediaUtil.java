@@ -183,7 +183,18 @@ public class MediaUtil {
             }
         }
     }
-
+    public boolean isAddVideoTrack(){
+        if (mVideoTrackIndex == -1){
+            return false;
+        }
+        return true;
+    }
+    public boolean isAddAudioTrack(){
+        if (mAudioTrackIndex == -1){
+            return false;
+        }
+        return true;
+    }
 
     public void addTrack(MediaFormat format,boolean isVideo){
         Log.e( TAG,"添加音频轨和视频轨");
@@ -195,16 +206,12 @@ public class MediaUtil {
         if (isVideo){
             mVideoFormat = format;
             mVideoTrackIndex = track;
-            if (mAudioTrackIndex != -1){
-                Log.i(TAG, "both audio and video added,and muxer is started");
-            }
-            mMuxer.start();
         }else {
             mAudioFormat = format;
             mAudioTrackIndex = track;
-            if (mVideoTrackIndex != -1){  //当音频轨和视频轨都添加，才start
-                mMuxer.start();
-            }
+        }
+        if (mVideoTrackIndex != -1 && mAudioTrackIndex != -1){  //当音频轨和视频轨都添加，才start
+            mMuxer.start();
         }
 
     }

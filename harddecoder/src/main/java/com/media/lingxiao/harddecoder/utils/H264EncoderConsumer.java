@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 
@@ -14,10 +15,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 
-import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
-import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
 
-public class H264Encoder {
+public class H264EncoderConsumer {
     private int m_width, m_height, m_framerate;
     private MediaCodec mediaCodec;
     private boolean isRuning;
@@ -44,7 +43,7 @@ public class H264Encoder {
     }
 
     private int bit_rate = 3; //可以设置为 1 3 5
-    public H264Encoder(int width, int height, int framerate, int bitrate,EncoderParams params) {
+    public H264EncoderConsumer(int width, int height, int framerate, int bitrate,EncoderParams params) {
         m_width = width;
         m_height = height;
         m_framerate = framerate;
@@ -137,55 +136,55 @@ public class H264Encoder {
                             }
 
 
-
-                            int outputBufferIndex = mediaCodec.dequeueOutputBuffer(mbBufferInfo, TIMEOUT_USEC);
-                            if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
-                                //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
-                                MediaFormat format = mediaCodec.getOutputFormat();
-                                mediaUtil.addTrack(format,true);
-                            }
-                            while (outputBufferIndex >= 0) {
-                                ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
-
-                                // 根据NALU类型判断帧类型
-                                int type = outputBuffer.get(4) & 0x1F;
-                                if (type == 5){
-                                    mediaUtil.putStrem(outputBuffer, mbBufferInfo, true);
-                                    isAddKeyFrame = true;
-                                    Log.i(TAG,"------编码混合视频数据 关键帧-----" + mbBufferInfo.size);
-                                }else if (type == 7 || type == 8){
-                                    Log.i(TAG, "------PPS、SPS帧(非图像数据)，忽略-------");
-                                }else {
-                                    if (isAddKeyFrame){
-                                        mediaUtil.putStrem(outputBuffer, mbBufferInfo, true);
-                                        Log.i(TAG,"------编码混合视频数据 普通帧-----" + mbBufferInfo.size);
+                            MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
+                            int outputBufferIndex = -1;
+                            do {
+                                outputBufferIndex = mediaCodec.dequeueOutputBuffer(mBufferInfo, TIMEOUT_USEC);
+                                if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                                    //Log.i(TAG, "获得编码器输出缓存区超时");
+                                } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                                    // 如果API小于21，APP需要重新绑定编码器的输入缓存区；
+                                    // 如果API大于21，则无需处理INFO_OUTPUT_BUFFERS_CHANGED
+                                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                                        outputBuffers = mediaCodec.getOutputBuffers();
                                     }
+                                } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                                    // 编码器输出缓存区格式改变，通常在存储数据之前且只会改变一次
+                                    // 这里设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
+                                    synchronized (H264EncoderConsumer.this) {
+                                        MediaFormat newFormat = mediaCodec.getOutputFormat();
+                                        mediaUtil.addTrack(newFormat, true);
+                                    }
+
+                                        //Log.i(TAG, "编码器输出缓存区格式改变，添加视频轨道到混合器");
+                                } else {
+                                    // 获取一个只读的输出缓存区inputBuffer ，它包含被编码好的数据
+                                    //因为上面的addTrackIndex方法不一定会被调用,所以要在此处再判断并添加一次,这也是混合的难点之一
+                                    if (!mediaUtil.isAddVideoTrack()){
+                                        synchronized (H264EncoderConsumer.this) {
+                                            MediaFormat newFormat = mediaCodec.getOutputFormat();
+                                            mediaUtil.addTrack(newFormat, true);
+                                        }
+                                    }
+                                    ByteBuffer outputBuffer = null;
+                                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                                        outputBuffer = outputBuffers[outputBufferIndex];
+                                    } else {
+                                        outputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex);
+                                    }
+                                    // 如果API<=19，需要根据BufferInfo的offset偏移量调整ByteBuffer的位置
+                                    // 并且限定将要读取缓存区数据的长度，否则输出数据会混乱
+                                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT) {
+                                        outputBuffer.position(mBufferInfo.offset);
+                                        outputBuffer.limit(mBufferInfo.offset + mBufferInfo.size);
+                                    }
+                                    mediaUtil.putStrem(outputBuffer, mBufferInfo, true);
+                                    Log.i(TAG,"------编码混合视频数据-----" + mBufferInfo.size);
+                                    // 处理结束，释放输出缓存区资源
+                                    mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                                 }
 
-                                byte[] outData = new byte[mbBufferInfo.size];
-                                outputBuffer.get(outData);
-                                if(mbBufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG){
-                                    configbyte = new byte[mbBufferInfo.size];
-                                    configbyte = outData;
-                                }else if(mbBufferInfo.flags == BUFFER_FLAG_KEY_FRAME){
-                                    byte[] keyframe = new byte[mbBufferInfo.size + configbyte.length];
-                                    System.arraycopy(configbyte, 0, keyframe, 0, configbyte.length);
-                                    //把编码后的视频帧从编码器输出缓冲区中拷贝出来
-                                    System.arraycopy(outData, 0, keyframe, configbyte.length, outData.length);
-                                    if (h264Listener != null){
-                                        h264Listener.onPreview(keyframe,m_width,m_height);
-                                    }
-                                    outputStream.write(keyframe, 0, keyframe.length);
-                                }else{
-                                    if (h264Listener != null){
-                                        h264Listener.onPreview(outData,m_width,m_height);
-                                    }
-                                    outputStream.write(outData, 0, outData.length);
-                                }
-
-                                mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
-                                outputBufferIndex = mediaCodec.dequeueOutputBuffer(mbBufferInfo, TIMEOUT_USEC);
-                            }
+                            } while (outputBufferIndex >= 0);
                         } catch (Throwable t) {
                             t.printStackTrace();
                         }
@@ -193,6 +192,7 @@ public class H264Encoder {
                         try {
                             //这里可以根据实际情况调整编码速度
                             Thread.sleep(500);
+                            Log.i(TAG, "调整编码速度");
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
@@ -236,12 +236,11 @@ public class H264Encoder {
         return isRuning;
     }
 
-    private PreviewFrameListener h264Listener;
-    public void setPreviewListner(PreviewFrameListener listener){
+    private H264Encoder.PreviewFrameListener h264Listener;
+    public void setPreviewListner(H264Encoder.PreviewFrameListener listener){
         this.h264Listener = listener;
     }
     public interface PreviewFrameListener {
         void onPreview(byte[] data,int width ,int height);
     }
-
 }

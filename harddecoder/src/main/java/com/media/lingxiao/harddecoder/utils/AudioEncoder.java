@@ -160,6 +160,15 @@ public class AudioEncoder {
                 }
                 ByteBuffer outPutBuf = outputBufferArray[outputIndex];
                 if (byteBufSize != 0){
+
+                    //因为上面的addTrackIndex方法不一定会被调用,所以要在此处再判断并添加一次,这也是混合的难点之一
+                    if (!mediaUtil.isAddAudioTrack()){
+                        synchronized (AudioEncoder.this) {
+                            MediaFormat newFormat = mMediaCodec.getOutputFormat();
+                            mediaUtil.addTrack(newFormat, false);
+                        }
+                    }
+
                     if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT){
                         outPutBuf.position(mBufferInfo.offset);
                         outPutBuf.limit(mBufferInfo.offset + mBufferInfo.size);
