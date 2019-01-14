@@ -221,10 +221,10 @@ public class MediaUtil {
             Log.e( TAG,"音频轨和视频轨没有添加");
             return;
         }
-        if (bufferInfo.flags == MediaCodec.BUFFER_FLAG_CODEC_CONFIG){
-
+        if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0){
+            // The codec config data was pulled out and fed to the muxer when we got
+            // the INFO_OUTPUT_FORMAT_CHANGED status.  Ignore it.
         }else if (bufferInfo.size != 0){
-
             outputBuffer.position(bufferInfo.offset);
             outputBuffer.limit(bufferInfo.size + bufferInfo.offset);
             mMuxer.writeSampleData(isVideo?mVideoTrackIndex:mAudioTrackIndex,outputBuffer,bufferInfo);

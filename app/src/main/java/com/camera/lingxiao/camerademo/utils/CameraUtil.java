@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
 import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
@@ -52,6 +53,7 @@ public class CameraUtil {
      * @param width
      * @param height
      */
+    //private ReentrantLock lock = new ReentrantLock();
     public void initCamera(int width, int height, Activity activity) {
         mActivity = activity;
         Camera.Parameters parameters = mCamera.getParameters();
@@ -96,9 +98,11 @@ public class CameraUtil {
             }
         });*/
         //1.设置回调:系统相机某些核心部分不走JVM,进行特殊优化，所以效率很高
+
         mCamera.setPreviewCallbackWithBuffer(new Camera.PreviewCallback() {
             @Override
             public void onPreviewFrame(byte[] datas, Camera camera) {
+                //if (!lock.tryLock()) return;
                 if (null != mPreviewCallback) {
                      byte[] yuvData = datas;
                     if (mOrienta != 0) {
@@ -113,6 +117,7 @@ public class CameraUtil {
                     //回收缓存处理 必须放这里 不然会出现垂直同步问题
                     camera.addCallbackBuffer(datas);
                 }
+                //lock.unlock();
             }
         });
         //2.增加缓冲区buffer: 这里指定的是yuv420sp格式

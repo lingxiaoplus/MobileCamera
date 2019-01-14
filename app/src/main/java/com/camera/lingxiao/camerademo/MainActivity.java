@@ -185,28 +185,18 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
             @Override
             public void onClick(View v) {
                 //启动线程编码  注意宽高
-                if (null != mCameraUtil && null == mH264Encoder || mAudioEncoder == null) {
+                if (null != mCameraUtil && null == mH264Encoder) {
                     EncoderParams params = new EncoderParams();
-                    params.setAudioSampleRate(44100);
-                    params.setAudioBitrate(1024 * 100);
-                    params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
-                    params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
-                    params.setAudioSouce(MediaRecorder.AudioSource.MIC);
-                    params.setVideoPath(ContentValue.MAIN_PATH + "/testYuv.mp4");
+                    params.setVideoPath(ContentValue.MAIN_PATH + "/testYuv.yuv");
                     mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
-
-                    mAudioEncoder = new AudioEncoder(params);
                 }
 
                 if (!mH264Encoder.isEncodering()) {
                     mH264Encoder.StartEncoderThread();
-                    AudioUtil.getInstance().startRecord("testmp4");
-                    mAudioEncoder.startEncodeAacData();
                     mH264Encoder.setPreviewListner(MainActivity.this);
                     mBtnEncoder.setText("停止编码");
                 } else {
                     mH264Encoder.stopThread();
-                    mAudioEncoder.stopEncodeAac();
                     mBtnEncoder.setText("编码h264");
                 }
             }
@@ -232,15 +222,13 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                     params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
                     params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
                     params.setAudioSouce(MediaRecorder.AudioSource.MIC);
-                    params.setVideoPath(ContentValue.MAIN_PATH + "/testYuv.mp4");
+                    params.setVideoPath(ContentValue.MAIN_PATH + "/muxer.mp4");
                     mH264EncoderConsumer = new H264EncoderConsumer(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
-
                     mAudioEncoder = new AudioEncoder(params);
                 }
 
                 if (!mH264EncoderConsumer.isEncodering()) {
                     mH264EncoderConsumer.StartEncoderThread();
-                    AudioUtil.getInstance().startRecord("testmp4");
                     mAudioEncoder.startEncodeAacData();
                     mH264EncoderConsumer.setPreviewListner(MainActivity.this);
                     mBtnMuxer.setText("停止混合编码");

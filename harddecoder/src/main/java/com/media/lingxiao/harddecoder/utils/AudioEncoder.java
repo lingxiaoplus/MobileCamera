@@ -143,8 +143,10 @@ public class AudioEncoder {
                 //Log.i(TAG,"获得编码器输出缓存区超时");
             }else if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
                 //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
-                MediaFormat format = mMediaCodec.getOutputFormat();
-                mediaUtil.addTrack(format,false);
+                synchronized (AudioEncoder.class){
+                    MediaFormat format = mMediaCodec.getOutputFormat();
+                    mediaUtil.addTrack(format,false);
+                }
             }else {
                 //获取缓存信息的长度
                 int byteBufSize = mBufferInfo.size;

@@ -27,7 +27,7 @@ public class H264EncoderConsumer {
     private static final int TIMEOUT_USEC = 12000;
     private BufferedOutputStream outputStream;
     private final MediaUtil mediaUtil;
-    private static final String TAG = H264Encoder.class.getSimpleName();
+    private static final String TAG = H264EncoderConsumer.class.getSimpleName();
     private MediaCodec.BufferInfo mbBufferInfo;
 
     private void createfile(){
@@ -155,8 +155,7 @@ public class H264EncoderConsumer {
                                         MediaFormat newFormat = mediaCodec.getOutputFormat();
                                         mediaUtil.addTrack(newFormat, true);
                                     }
-
-                                        //Log.i(TAG, "编码器输出缓存区格式改变，添加视频轨道到混合器");
+                                    //Log.i(TAG, "编码器输出缓存区格式改变，添加视频轨道到混合器");
                                 } else {
                                     // 获取一个只读的输出缓存区inputBuffer ，它包含被编码好的数据
                                     //因为上面的addTrackIndex方法不一定会被调用,所以要在此处再判断并添加一次,这也是混合的难点之一

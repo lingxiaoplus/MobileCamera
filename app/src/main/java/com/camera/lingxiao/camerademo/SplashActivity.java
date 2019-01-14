@@ -41,9 +41,9 @@ public class SplashActivity extends BaseActivity implements View.OnClickListener
     }
 
     private void initView() {
-        mButtonExtractor = (Button) findViewById(R.id.button_extractor);
+        mButtonExtractor = findViewById(R.id.button_extractor);
         mButtonExtractor.setOnClickListener(this);
-        mButtonCamera = (Button) findViewById(R.id.button_camera);
+        mButtonCamera = findViewById(R.id.button_camera);
         mButtonCamera.setOnClickListener(this);
         mButtonAudio = findViewById(R.id.button_audio);
         mButtonAudio.setOnClickListener(this);

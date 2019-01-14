@@ -27,11 +27,11 @@ public class H264Encoder {
     private static String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/testYuv.h264";
     private static final int TIMEOUT_USEC = 12000;
     private BufferedOutputStream outputStream;
-    private final MediaUtil mediaUtil;
+    //private final MediaUtil mediaUtil;
     private static final String TAG = H264Encoder.class.getSimpleName();
     private MediaCodec.BufferInfo mbBufferInfo;
 
-    private void createfile(){
+    private void createfile(String path){
         File file = new File(path);
         if(file.exists()){
             file.delete();
@@ -49,8 +49,8 @@ public class H264Encoder {
         m_height = height;
         m_framerate = framerate;
 
-        mediaUtil = MediaUtil.getDefault();
-        mediaUtil.setVideoPath(params.getVideoPath());
+        //mediaUtil = MediaUtil.getDefault();
+        //mediaUtil.setVideoPath(params.getVideoPath());
         MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", width, height);
         //颜色空间设置为yuv420sp
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
@@ -71,7 +71,7 @@ public class H264Encoder {
         mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         mediaCodec.start();
         mbBufferInfo = new MediaCodec.BufferInfo();
-        createfile();
+        createfile(params.getVideoPath());
     }
 
     private void NV21ToNV12(byte[] nv21, byte[] nv12, int width, int height) {
@@ -112,7 +112,7 @@ public class H264Encoder {
                 while (isRuning) {
                     if (YUVQueue.size() > 0){
                         //从缓冲队列中取出一帧
-                        input = YUVQueue.poll();
+                        input = YUVQueue.poll();  //队列不为空时返回队首值并移除；队列为空时返回null
                         byte[] yuv420sp = new byte[m_width*m_height*3/2];
                         //把待编码的视频帧转换为YUV420格式
                         NV21ToNV12(input,yuv420sp,m_width,m_height);
@@ -139,16 +139,16 @@ public class H264Encoder {
 
 
                             int outputBufferIndex = mediaCodec.dequeueOutputBuffer(mbBufferInfo, TIMEOUT_USEC);
-                            if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
+                            /*if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
                                 //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
                                 MediaFormat format = mediaCodec.getOutputFormat();
                                 mediaUtil.addTrack(format,true);
-                            }
+                            }*/
                             while (outputBufferIndex >= 0) {
                                 ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
 
                                 // 根据NALU类型判断帧类型
-                                int type = outputBuffer.get(4) & 0x1F;
+                                /*int type = outputBuffer.get(4) & 0x1F;
                                 if (type == 5){
                                     mediaUtil.putStrem(outputBuffer, mbBufferInfo, true);
                                     isAddKeyFrame = true;
@@ -160,7 +160,7 @@ public class H264Encoder {
                                         mediaUtil.putStrem(outputBuffer, mbBufferInfo, true);
                                         Log.i(TAG,"------编码混合视频数据 普通帧-----" + mbBufferInfo.size);
                                     }
-                                }
+                                }*/
 
                                 byte[] outData = new byte[mbBufferInfo.size];
                                 outputBuffer.get(outData);
@@ -221,7 +221,7 @@ public class H264Encoder {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        mediaUtil.release();
+        //mediaUtil.release();
     }
     /**
      * 计算pts
