@@ -24,7 +24,7 @@ public class H264EncoderConsumer {
     private ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<>(yuvqueuesize);
     private byte[] configbyte;
     private static String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/testYuv.h264";
-    private static final int TIMEOUT_USEC = 12000;
+    private static final int TIMEOUT_USEC = 10000;
     private BufferedOutputStream outputStream;
     private final MediaUtil mediaUtil;
     private static final String TAG = H264EncoderConsumer.class.getSimpleName();
@@ -43,7 +43,7 @@ public class H264EncoderConsumer {
     }
 
     private int bit_rate = 3; //可以设置为 1 3 5
-    public H264EncoderConsumer(int width, int height, int framerate, int bitrate,EncoderParams params) {
+    public H264EncoderConsumer(int width, int height, int framerate, int bitrate, EncoderParams params) {
         m_width = width;
         m_height = height;
         m_framerate = framerate;
@@ -97,6 +97,35 @@ public class H264EncoderConsumer {
         YUVQueue.add(buffer);
     }
 
+    public void addYUVData(byte[] yuvData){
+        if (!isRuning && mediaCodec == null){
+            return;
+        }
+        byte[] yuv420sp = new byte[m_width * m_height * 3/2];
+        NV21ToNV12(yuvData,yuv420sp,m_width,m_height);
+        feedMediaCodecData(yuv420sp);
+    }
+
+    private void feedMediaCodecData(byte[] data) {
+        ByteBuffer[] inputBuffers = mediaCodec.getInputBuffers();
+        int inputBufferIndex = mediaCodec.dequeueInputBuffer(TIMEOUT_USEC);
+        if (inputBufferIndex >= 0) {
+            // 绑定一个被空的、可写的输入缓存区inputBuffer到客户端
+            ByteBuffer inputBuffer = null;
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                inputBuffer = inputBuffers[inputBufferIndex];
+            } else {
+                inputBuffer = mediaCodec.getInputBuffer(inputBufferIndex);
+            }
+            // 向输入缓存区写入有效原始数据，并提交到编码器中进行编码处理
+            inputBuffer.clear();
+            inputBuffer.put(data);
+            inputBuffer.clear();
+            mediaCodec.queueInputBuffer(inputBufferIndex, 0, data.length, System.nanoTime() / 1000, MediaCodec.BUFFER_FLAG_KEY_FRAME);
+        }
+    }
+
+
     private boolean isAddKeyFrame;
     public void StartEncoderThread(){
         Thread EncoderThread = new Thread(new Runnable() {
@@ -104,15 +133,15 @@ public class H264EncoderConsumer {
             @Override
             public void run() {
                 isRuning = true;
-                byte[] input = null;
                 long pts =  0;
                 long generateIndex = 0;
-
+                byte[] input = null;
                 while (isRuning) {
+
                     if (YUVQueue.size() > 0){
                         //从缓冲队列中取出一帧
                         input = YUVQueue.poll();
-                        byte[] yuv420sp = new byte[m_width*m_height*3/2];
+                        byte[] yuv420sp = new byte[m_width * m_height * 3/2];
                         //把待编码的视频帧转换为YUV420格式
                         NV21ToNV12(input,yuv420sp,m_width,m_height);
                         input = yuv420sp;
@@ -134,7 +163,6 @@ public class H264EncoderConsumer {
                                 mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, pts, MediaCodec.BUFFER_FLAG_KEY_FRAME);
                                 generateIndex += 1;
                             }
-
 
                             MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
                             int outputBufferIndex = -1;
@@ -178,7 +206,6 @@ public class H264EncoderConsumer {
                                         outputBuffer.limit(mBufferInfo.offset + mBufferInfo.size);
                                     }
                                     mediaUtil.putStrem(outputBuffer, mBufferInfo, true);
-                                    Log.i(TAG,"------编码混合视频数据-----" + mBufferInfo.size);
                                     // 处理结束，释放输出缓存区资源
                                     mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                                 }
@@ -187,7 +214,7 @@ public class H264EncoderConsumer {
                         } catch (Throwable t) {
                             t.printStackTrace();
                         }
-                    } else {
+                    }else {
                         try {
                             //这里可以根据实际情况调整编码速度
                             Thread.sleep(500);
