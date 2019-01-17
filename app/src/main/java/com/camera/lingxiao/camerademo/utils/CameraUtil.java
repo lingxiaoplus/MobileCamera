@@ -7,25 +7,17 @@ import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.hardware.Camera;
-import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
-import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.concurrent.locks.ReentrantLock;
+import com.media.lingxiao.harddecoder.utils.YuvUtil;
 
-import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
-import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
 
 public class CameraUtil {
     private int mOrienta = 0;//时针旋转的角度
@@ -41,6 +33,7 @@ public class CameraUtil {
     private MediaRecorder mediaRecorder;
     private int defaultVideoFrameRate = 30; //视频默认帧率 无法设置
     private boolean mInitCameraResult;  //相机是否初始化成功
+    private static final String TAG = CameraUtil.class.getSimpleName();
 
     public CameraUtil(Camera camera, int cameraId) {
         mCamera = camera;
@@ -108,9 +101,13 @@ public class CameraUtil {
                     if (mOrienta != 0) {
                         //说明有旋转角度 最好在native层做数据处理
                         if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
-                            yuvData = rotateYUVDegree90(datas,mWidth,mHeight);
+                            //long before = System.currentTimeMillis();
+                            //yuvData = rotateYUVDegree90(datas,mWidth,mHeight);  //耗时比较久
+                            yuvData = YuvUtil.rotateYuv90(datas,mWidth,mHeight); //70ms-120ms之间，一般稳定在70ms
+                            //long after = System.currentTimeMillis();
+                            //Log.e(TAG, "旋转yuv耗时: "+(after-before)+"ms");
                         }else {
-                            yuvData = rotateYUVDegree270AndMirror(datas,mWidth,mHeight);
+                            yuvData = YuvUtil.rotateYUVDegree270AndMirror(datas,mWidth,mHeight);
                         }
                     }
                     mPreviewCallback.onPreviewFrame(yuvData, camera);
@@ -447,7 +444,7 @@ public class CameraUtil {
     }
 
     /**
-     * yuv旋转90度  y = width*height，u = y/4 v = y/4
+     * yuv旋转90度  y = width*height，u = y/4 v = y/4   耗时150ms-200ms之间
      * @param data
      * @param imageWidth
      * @param imageHeight

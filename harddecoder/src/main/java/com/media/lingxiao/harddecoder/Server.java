@@ -1,15 +1,14 @@
-package com.media.lingxiao.harddecoder.utils;
+package com.media.lingxiao.harddecoder;
 
-import android.graphics.Rect;
 import android.util.Log;
 
-import com.media.lingxiao.harddecoder.utils.events.StrameEventHandler;
-import com.media.lingxiao.harddecoder.utils.model.VideoStreamModel;
-import com.media.lingxiao.harddecoder.utils.pkgs.PreViewFrameResponse;
-import com.media.lingxiao.harddecoder.utils.tlv.Constants;
-import com.media.lingxiao.harddecoder.utils.tlv.DummySerializable;
-import com.media.lingxiao.harddecoder.utils.tlv.ServerConfig;
-import com.media.lingxiao.harddecoder.utils.tlv.TLVCodecFactory;
+import com.media.lingxiao.harddecoder.events.StrameEventHandler;
+import com.media.lingxiao.harddecoder.model.VideoStreamModel;
+import com.media.lingxiao.harddecoder.pkgs.PreViewFrameResponse;
+import com.media.lingxiao.harddecoder.tlv.Constants;
+import com.media.lingxiao.harddecoder.tlv.DummySerializable;
+import com.media.lingxiao.harddecoder.tlv.ServerConfig;
+import com.media.lingxiao.harddecoder.tlv.TLVCodecFactory;
 
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.service.IoHandlerAdapter;

@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.utils;
+package com.media.lingxiao.harddecoder.decoder;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;

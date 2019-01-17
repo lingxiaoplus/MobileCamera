@@ -14,7 +14,7 @@ import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Environment;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
+
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -25,16 +25,15 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.camera.lingxiao.camerademo.crash.ContentValue;
-import com.camera.lingxiao.camerademo.utils.AudioUtil;
 import com.camera.lingxiao.camerademo.utils.CameraUtil;
 import com.camera.lingxiao.camerademo.utils.LogUtil;
-import com.media.lingxiao.harddecoder.utils.AudioEncoder;
-import com.media.lingxiao.harddecoder.utils.EncoderParams;
-import com.media.lingxiao.harddecoder.utils.H264Encoder;
-import com.media.lingxiao.harddecoder.utils.H264EncoderConsumer;
-import com.media.lingxiao.harddecoder.utils.Server;
-import com.media.lingxiao.harddecoder.utils.model.VideoStreamModel;
-import com.media.lingxiao.harddecoder.utils.tlv.ServerConfig;
+import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
+import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.encoder.H264Encoder;
+import com.media.lingxiao.harddecoder.encoder.H264EncoderConsumer;
+import com.media.lingxiao.harddecoder.Server;
+import com.media.lingxiao.harddecoder.model.VideoStreamModel;
+import com.media.lingxiao.harddecoder.tlv.ServerConfig;
 
 import java.io.File;
 import java.util.Arrays;
@@ -222,7 +221,7 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                     params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
                     params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
                     params.setAudioSouce(MediaRecorder.AudioSource.MIC);
-                    params.setVideoPath(ContentValue.MAIN_PATH + "/muxer.mp4");
+                    params.setVideoPath(ContentValue.MAIN_PATH + "/muxer-" + System.currentTimeMillis() + ".mp4");
                     mH264EncoderConsumer = new H264EncoderConsumer(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
                     mAudioEncoder = new AudioEncoder(params);
                 }
@@ -230,7 +229,7 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                 if (!mH264EncoderConsumer.isEncodering()) {
                     mH264EncoderConsumer.StartEncoderThread();
                     mAudioEncoder.startEncodeAacData();
-                    mH264EncoderConsumer.setPreviewListner(MainActivity.this);
+                    //mH264EncoderConsumer.setPreviewListner(MainActivity.this);
                     mBtnMuxer.setText("停止混合编码");
                 } else {
                     mH264EncoderConsumer.stopThread();
@@ -340,7 +339,7 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                             mH264Encoder.putYUVData(data);
                         }
                         if (mH264EncoderConsumer != null){
-                            mH264EncoderConsumer.putYUVData(data);
+                            mH264EncoderConsumer.addYUVData(data);
                         }
                     }
                 });
@@ -355,9 +354,8 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                                 recorderBtn.setText("录制");
                                 return;
                             }
-                            String filePath = Environment
-                                    .getExternalStorageDirectory()
-                                    .getAbsolutePath() + "/CameraDemo/"
+
+                            String filePath = ContentValue.MAIN_PATH + "/"
                                     + System.currentTimeMillis() + ".mp4";
                             isRecorder = mCameraUtil.initRecorder(filePath, holder
                             );

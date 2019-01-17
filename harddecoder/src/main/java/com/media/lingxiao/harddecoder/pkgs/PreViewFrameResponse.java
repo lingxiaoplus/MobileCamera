@@ -1,10 +1,10 @@
-package com.media.lingxiao.harddecoder.utils.pkgs;
+package com.media.lingxiao.harddecoder.pkgs;
 
 
 import android.util.Log;
 
-import com.media.lingxiao.harddecoder.utils.model.VideoStreamModel;
-import com.media.lingxiao.harddecoder.utils.tlv.Constants;
+import com.media.lingxiao.harddecoder.model.VideoStreamModel;
+import com.media.lingxiao.harddecoder.tlv.Constants;
 
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.session.IoSession;

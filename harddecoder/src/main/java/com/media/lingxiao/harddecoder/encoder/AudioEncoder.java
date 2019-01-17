@@ -1,6 +1,5 @@
-package com.media.lingxiao.harddecoder.utils;
+package com.media.lingxiao.harddecoder.encoder;
 
-import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -10,11 +9,13 @@ import android.os.Environment;
 import android.os.Process;
 import android.util.Log;
 
+import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.utils.MediaUtil;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.ArrayBlockingQueue;
 
 public class AudioEncoder {
     private MediaCodec.BufferInfo mBufferInfo;
@@ -22,7 +23,7 @@ public class AudioEncoder {
     private int bitRate = 96000;
     private ByteBuffer[] inputBufferArray;
     private ByteBuffer[] outputBufferArray;
-    private FileOutputStream  fileOutputStream;
+    private FileOutputStream fileOutputStream;
     private MediaCodec mMediaCodec;
 
     private boolean isEncoding;
@@ -31,13 +32,13 @@ public class AudioEncoder {
     private AudioRecord mAudioRecord;
     private int mAudioRecordBufferSize;
 
-    public AudioEncoder(EncoderParams params){
+    public AudioEncoder(EncoderParams params) {
         try {
             mediaUtil = MediaUtil.getDefault();
 
             File root = Environment.getExternalStorageDirectory();
-            File  fileAAc = new File(root,"生成的aac.aac");
-            if(!fileAAc.exists()){
+            File fileAAc = new File(root, "生成的aac.aac");
+            if (!fileAAc.exists()) {
                 fileAAc.createNewFile();
             }
             fileOutputStream = new FileOutputStream(fileAAc.getAbsoluteFile());
@@ -46,7 +47,7 @@ public class AudioEncoder {
             mediaFormat.setString(MediaFormat.KEY_MIME, mime);
             mediaFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
             mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
-            mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2); //声道
+            mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1); //声道
             mediaFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 1024 * 100);//作用于inputBuffer的大小
             mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);//采样率
 
@@ -66,22 +67,22 @@ public class AudioEncoder {
     }
 
 
-    private void startAudioRecord(EncoderParams params){
+    private void startAudioRecord(EncoderParams params) {
         // 计算AudioRecord所需输入缓存空间大小
-        mAudioRecordBufferSize = AudioRecord.getMinBufferSize(params.getAudioSampleRate(),params.getAudioChannelConfig(),
+        mAudioRecordBufferSize = AudioRecord.getMinBufferSize(params.getAudioSampleRate(), params.getAudioChannelConfig(),
                 params.getAudioFormat());
-        if(mAudioRecordBufferSize < 1600){
+        if (mAudioRecordBufferSize < 1600) {
             mAudioRecordBufferSize = 1600;
         }
         Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
-        mAudioRecord = new AudioRecord(params.getAudioSouce(),params.getAudioSampleRate(),
-                params.getAudioChannelConfig(),params.getAudioFormat(), mAudioRecordBufferSize);
+        mAudioRecord = new AudioRecord(params.getAudioSouce(), params.getAudioSampleRate(),
+                params.getAudioChannelConfig(), params.getAudioFormat(), mAudioRecordBufferSize);
         // 开始录音
         mAudioRecord.startRecording();
     }
 
-    public void stopAudioRecord(){
-        if(mAudioRecord != null){
+    public void stopAudioRecord() {
+        if (mAudioRecord != null) {
             mAudioRecord.stop();
             mAudioRecord.release();
             mAudioRecord = null;
@@ -93,19 +94,19 @@ public class AudioEncoder {
         Thread aacEncoderThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                while (isEncoding){
-                    if (mAudioRecord != null && mMediaCodec != null){
+                while (isEncoding) {
+                    if (mAudioRecord != null && mMediaCodec != null) {
                         byte[] audioBuf = new byte[mAudioRecordBufferSize];
-                        int readBytes = mAudioRecord.read(audioBuf,0,mAudioRecordBufferSize);
-                        if (readBytes > 0){
+                        int readBytes = mAudioRecord.read(audioBuf, 0, mAudioRecordBufferSize);
+                        if (readBytes > 0) {
                             /*try {
                                 fileOutputStream.write(audioBuf,0,readBytes);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }*/
                             try {
-                                encodeAudioBytes(audioBuf,readBytes);
-                            }catch (Exception e){
+                                encodeAudioBytes(audioBuf, readBytes);
+                            } catch (Exception e) {
                                 e.printStackTrace();
                             }
 
@@ -126,12 +127,12 @@ public class AudioEncoder {
         int inputIndex = mMediaCodec.dequeueInputBuffer(-1);//获取输入缓存的index
         if (inputIndex >= 0) {
             ByteBuffer inputByteBuf = inputBufferArray[inputIndex];
-            if (audioBuf == null || readBytes <= 0){
-                mMediaCodec.queueInputBuffer(inputIndex,0,0,getPTSUs(),MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-            }else {
+            if (audioBuf == null || readBytes <= 0) {
+                mMediaCodec.queueInputBuffer(inputIndex, 0, 0, getPTSUs(), MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+            } else {
                 inputByteBuf.clear();
                 inputByteBuf.put(audioBuf);//添加数据
-                inputByteBuf.limit(audioBuf.length);//限制ByteBuffer的访问长度
+                //inputByteBuf.limit(audioBuf.length);//限制ByteBuffer的访问长度
                 mMediaCodec.queueInputBuffer(inputIndex, 0, readBytes, getPTSUs(), 0);//把输入缓存塞回去给MediaCodec
             }
         }
@@ -139,44 +140,44 @@ public class AudioEncoder {
         int outputIndex = -1;
         do {
             outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);
-            if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER){
+            if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
                 //Log.i(TAG,"获得编码器输出缓存区超时");
-            }else if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
+            } else if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
-                synchronized (AudioEncoder.class){
+                synchronized (AudioEncoder.class) {
                     MediaFormat format = mMediaCodec.getOutputFormat();
-                    mediaUtil.addTrack(format,false);
+                    mediaUtil.addTrack(format, false);
                 }
-            }else {
+            } else {
                 //获取缓存信息的长度
                 int byteBufSize = mBufferInfo.size;
                 // 当flag属性置为BUFFER_FLAG_CODEC_CONFIG后，说明输出缓存区的数据已经被消费了
-            if((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0){
-                Log.i(TAG,"编码数据被消费，BufferInfo的size属性置0");
-                byteBufSize = 0;
-            }
+                if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                    Log.i(TAG, "编码数据被消费，BufferInfo的size属性置0");
+                    byteBufSize = 0;
+                }
                 // 数据流结束标志，结束本次循环
-                if((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0){
-                    Log.i(TAG,"数据流结束，退出循环");
+                if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                    Log.i(TAG, "数据流结束，退出循环");
                     break;
                 }
                 ByteBuffer outPutBuf = outputBufferArray[outputIndex];
-                if (byteBufSize != 0){
+                if (byteBufSize != 0) {
 
                     //因为上面的addTrackIndex方法不一定会被调用,所以要在此处再判断并添加一次,这也是混合的难点之一
-                    if (!mediaUtil.isAddAudioTrack()){
+                    if (!mediaUtil.isAddAudioTrack()) {
                         synchronized (AudioEncoder.this) {
                             MediaFormat newFormat = mMediaCodec.getOutputFormat();
                             mediaUtil.addTrack(newFormat, false);
                         }
                     }
 
-                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT){
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT) {
                         outPutBuf.position(mBufferInfo.offset);
                         outPutBuf.limit(mBufferInfo.offset + mBufferInfo.size);
                     }
-                    mediaUtil.putStrem(outPutBuf,mBufferInfo,false);
-                    Log.i(TAG,"------编码混合音频数据-----" + mBufferInfo.size);
+                    mediaUtil.putStrem(outPutBuf, mBufferInfo, false);
+                    Log.i(TAG, "------编码混合音频数据-----" + mBufferInfo.size);
                 }
                 //释放
                 mMediaCodec.releaseOutputBuffer(outputIndex, false);
@@ -184,9 +185,9 @@ public class AudioEncoder {
         } while (outputIndex >= 0 && isEncoding);
     }
 
-    public void stopEncodeAac(){
+    public void stopEncodeAac() {
         stopAudioRecord();
-        if (mMediaCodec != null){
+        if (mMediaCodec != null) {
             mMediaCodec.stop();
             mMediaCodec.release();
             mMediaCodec = null;
@@ -202,10 +203,11 @@ public class AudioEncoder {
     }
 
     private long prevPresentationTimes = 0;
-    private long getPTSUs(){
+
+    private long getPTSUs() {
         long result = System.nanoTime() / 1000;
-        if(result < prevPresentationTimes){
-            result = (prevPresentationTimes  - result ) + result;
+        if (result < prevPresentationTimes) {
+            result = (prevPresentationTimes - result) + result;
         }
         return result;
     }

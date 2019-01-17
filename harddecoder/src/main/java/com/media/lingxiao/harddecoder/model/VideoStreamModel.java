@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.utils.model;
+package com.media.lingxiao.harddecoder.model;
 
 public class VideoStreamModel {
     private int type; //视频格式

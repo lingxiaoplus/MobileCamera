@@ -2,6 +2,8 @@ package com.camera.lingxiao.camerademo;
 
 import android.content.DialogInterface;
 import android.os.Environment;
+
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
@@ -102,7 +104,11 @@ public class AudioActivity extends BaseActivity {
 
             }
         });
-
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null){
+            actionBar.setDisplayHomeAsUpEnabled(true);
+            actionBar.setTitle("音频采集");
+        }
     }
 
     private void showDialog(final String[] files){

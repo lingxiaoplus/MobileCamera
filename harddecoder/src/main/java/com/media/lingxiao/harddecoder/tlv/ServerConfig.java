@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.utils.tlv;
+package com.media.lingxiao.harddecoder.tlv;
 
 public class ServerConfig {
     /**

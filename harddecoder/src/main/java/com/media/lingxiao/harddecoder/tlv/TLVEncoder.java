@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.utils.tlv;
+package com.media.lingxiao.harddecoder.tlv;
 
 import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolEncoderAdapter;

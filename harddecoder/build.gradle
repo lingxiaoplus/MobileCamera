@@ -12,7 +12,16 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-
+        externalNativeBuild {
+            cmake {
+                cppFlags ""
+                //cppFlags "-frtti -fexceptions"
+            }
+        }
+        ndk{
+            abiFilters 'armeabi-v7a'
+            ldLibs "gomp"
+        }
     }
 
     buildTypes {
@@ -21,7 +30,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-
+    externalNativeBuild {
+        cmake {
+            path "CMakeLists.txt"
+        }
+    }
 }
 
 dependencies {

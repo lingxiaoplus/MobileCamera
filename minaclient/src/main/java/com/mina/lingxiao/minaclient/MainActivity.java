@@ -5,7 +5,7 @@ import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-import com.media.lingxiao.harddecoder.utils.Client;
+import com.media.lingxiao.harddecoder.Client;
 
 public class MainActivity extends AppCompatActivity {
 

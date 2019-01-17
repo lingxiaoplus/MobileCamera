@@ -8,7 +8,7 @@ import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.Log;
 
-import com.media.lingxiao.harddecoder.utils.AudioEncoder;
+import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
 
 import java.io.File;
 import java.io.FileInputStream;

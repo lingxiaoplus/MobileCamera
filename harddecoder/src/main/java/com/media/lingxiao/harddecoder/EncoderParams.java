@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.utils;
+package com.media.lingxiao.harddecoder;
 
 public class EncoderParams {
     // 码率等级
@@ -9,15 +9,18 @@ public class EncoderParams {
     public enum FrameRate{
         _20fps,_25fps,_30fps
     }
-
+    public static final int DEFAULT_AUDIO_SAMPLE_RATE = 44100; //所有android系统都支持的采样率
+    public static final int DEFAULT_CHANNEL_COUNT = 1; //单声道
+    public static final int CHANNEL_COUNT_STEREO = 2;  //立体声
+    public static final int DEFAULT_BIT_RATE = 96000;  //默认比特率
     private String videoPath;
     private int frameWidth;
     private int frameHeight;
-    private int audioBitrate;   // 音频编码比特率
-    private int audioChannelCount; // 通道数据
-    private int audioSampleRate;   // 采样率
+    private int audioBitrate = DEFAULT_BIT_RATE;   // 音频编码比特率
+    private int audioChannelCount = DEFAULT_CHANNEL_COUNT; // 通道数
+    private int audioSampleRate = DEFAULT_AUDIO_SAMPLE_RATE;   // 采样率
 
-    private int audioChannelConfig; // 单声道或立体声
+    private int audioChannelConfig ; // 单声道或立体声
     private int audioFormat;    // 采样精度
     private int audioSouce;     // 音频来源
 

@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.utils;
+package com.media.lingxiao.harddecoder.encoder;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodec;
@@ -6,6 +6,8 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.os.Environment;
 import android.util.Log;
+
+import com.media.lingxiao.harddecoder.EncoderParams;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -98,6 +100,10 @@ public class H264Encoder {
         YUVQueue.add(buffer);
     }
 
+    /**
+     * 纯H264的文件，是没有时间戳概念的，就是一堆流文件，所以如果手机配置低的话，由于编码时间过长（大于两次帧刷新间隔的话），
+     * 会导致很多帧数据丢掉，所以最终的流文件播放出来就会短。反之高端手机由于处理时间短而且相机帧率又高的话就会导致播放时间变长。
+     */
     private boolean isAddKeyFrame;
     public void StartEncoderThread(){
         Thread EncoderThread = new Thread(new Runnable() {
@@ -238,7 +244,7 @@ public class H264Encoder {
 
     private PreviewFrameListener h264Listener;
     public void setPreviewListner(PreviewFrameListener listener){
-        this.h264Listener = listener;
+        h264Listener = listener;
     }
     public interface PreviewFrameListener {
         void onPreview(byte[] data,int width ,int height);

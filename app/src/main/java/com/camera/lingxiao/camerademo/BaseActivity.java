@@ -3,6 +3,7 @@ package com.camera.lingxiao.camerademo;
 import android.app.ProgressDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.MenuItem;
 
 import com.camera.lingxiao.camerademo.crash.AppManager;
 
@@ -35,5 +36,18 @@ public class BaseActivity extends AppCompatActivity {
         if (mDialog != null){
             mDialog.cancel();
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case android.R.id.home:
+                finish();
+                break;
+
+            default:
+                break;
+        }
+        return super.onOptionsItemSelected(item);
     }
 }

@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.utils;
+package com.media.lingxiao.harddecoder.encoder;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodec;
@@ -7,6 +7,10 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
+
+import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.utils.MediaUtil;
+import com.media.lingxiao.harddecoder.utils.YuvUtil;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -89,6 +93,10 @@ public class H264EncoderConsumer {
         }
     }
 
+    /*每帧都不遗漏，编码时每次去池子里取；
+     这样的缺点是，由于时间差会导致池子里数据会越来越多，
+     在点击“录制结束”时池子中的很多数据其实还没取完，
+     即编码要在录制结束操作之后很长时间才完成。*/
     public void putYUVData(byte[] buffer) {
         if (YUVQueue.size() >= yuvqueuesize) {
             YUVQueue.poll();
@@ -102,7 +110,11 @@ public class H264EncoderConsumer {
             return;
         }
         byte[] yuv420sp = new byte[m_width * m_height * 3/2];
-        NV21ToNV12(yuvData,yuv420sp,m_width,m_height);
+        long before = System.currentTimeMillis();
+        //NV21ToNV12(yuvData,yuv420sp,m_width,m_height);  //耗时110ms左右
+        YuvUtil.NV21ToNV12(yuvData,yuv420sp,m_width,m_height); //耗时35ms左右 解决卡顿问题
+        long after = System.currentTimeMillis();
+        Log.e(TAG, "nv21转nv12耗时: "+(after-before)+"ms");
         feedMediaCodecData(yuv420sp);
     }
 
@@ -138,17 +150,17 @@ public class H264EncoderConsumer {
                 byte[] input = null;
                 while (isRuning) {
 
-                    if (YUVQueue.size() > 0){
+                    /*if (YUVQueue.size() > 0){
                         //从缓冲队列中取出一帧
                         input = YUVQueue.poll();
                         byte[] yuv420sp = new byte[m_width * m_height * 3/2];
                         //把待编码的视频帧转换为YUV420格式
                         NV21ToNV12(input,yuv420sp,m_width,m_height);
                         input = yuv420sp;
-                    }
-                    if (input != null) {
+                    }*/
+                    //if (input != null) {
                         try {
-                            long startMs = System.currentTimeMillis();
+                            /*long startMs = System.currentTimeMillis();
                             //编码器输入缓冲区
                             ByteBuffer[] inputBuffers = mediaCodec.getInputBuffers();
                             //编码器输出缓冲区
@@ -162,8 +174,9 @@ public class H264EncoderConsumer {
                                 inputBuffer.put(input);
                                 mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, pts, MediaCodec.BUFFER_FLAG_KEY_FRAME);
                                 generateIndex += 1;
-                            }
-
+                            }*/
+                            //编码器输出缓冲区
+                            ByteBuffer[] outputBuffers = mediaCodec.getOutputBuffers();
                             MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
                             int outputBufferIndex = -1;
                             do {
@@ -214,7 +227,7 @@ public class H264EncoderConsumer {
                         } catch (Throwable t) {
                             t.printStackTrace();
                         }
-                    }else {
+                    /*}else {
                         try {
                             //这里可以根据实际情况调整编码速度
                             Thread.sleep(500);
@@ -222,7 +235,7 @@ public class H264EncoderConsumer {
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
-                    }
+                    }*/
                 }
             }
         });
@@ -262,8 +275,8 @@ public class H264EncoderConsumer {
         return isRuning;
     }
 
-    private H264Encoder.PreviewFrameListener h264Listener;
-    public void setPreviewListner(H264Encoder.PreviewFrameListener listener){
+    private PreviewFrameListener h264Listener;
+    public void setPreviewListner(PreviewFrameListener listener){
         this.h264Listener = listener;
     }
     public interface PreviewFrameListener {

@@ -1,11 +1,11 @@
-package com.media.lingxiao.harddecoder.utils;
+package com.media.lingxiao.harddecoder;
 
-import android.nfc.Tag;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
-import com.media.lingxiao.harddecoder.utils.tlv.Constants;
-import com.media.lingxiao.harddecoder.utils.tlv.TLVCodecFactory;
+import com.media.lingxiao.harddecoder.decoder.H264Decoder;
+import com.media.lingxiao.harddecoder.tlv.Constants;
+import com.media.lingxiao.harddecoder.tlv.TLVCodecFactory;
 
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.future.ConnectFuture;
@@ -18,7 +18,7 @@ import org.apache.mina.transport.socket.nio.NioSocketConnector;
 import java.net.InetSocketAddress;
 import java.nio.ByteOrder;
 
-import static com.media.lingxiao.harddecoder.utils.tlv.Constants.MESSAGE_ID_STRAME;
+import static com.media.lingxiao.harddecoder.tlv.Constants.MESSAGE_ID_STRAME;
 
 public class Client{
 

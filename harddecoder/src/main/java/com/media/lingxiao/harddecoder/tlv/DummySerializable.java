@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.utils.tlv;
+package com.media.lingxiao.harddecoder.tlv;
 
 /**
  * @author lingxiao 一般用于发送心跳包等
