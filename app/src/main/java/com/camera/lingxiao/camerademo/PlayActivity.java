@@ -3,8 +3,8 @@ package com.camera.lingxiao.camerademo;
 import android.content.Intent;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
-import android.os.Environment;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.Toast;
@@ -21,9 +21,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
+
 public class PlayActivity extends BaseActivity {
 
-    private SurfaceView mSurfaceView;
+    @BindView(R.id.surfaceView_play)
+    SurfaceView mSurfaceView;
+
     private DataInputStream mInputStream;
     private SurfaceHolder mHolder;
     private H264Decoder mDecoder;
@@ -35,10 +40,13 @@ public class PlayActivity extends BaseActivity {
     private Boolean isUsePpsAndSps = false;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_play);
-        mSurfaceView = findViewById(R.id.surfaceView_play);
+    protected int getContentLayoutId() {
+        return R.layout.activity_play;
+    }
+
+    @Override
+    protected void initWidget() {
+        super.initWidget();
         Intent intent = getIntent();
         path = intent.getStringExtra("path");
         File f = new File(path);
@@ -175,6 +183,7 @@ public class PlayActivity extends BaseActivity {
 
     /**
      * 从文件中读取字节数组
+     *
      * @param is
      * @return
      * @throws IOException
@@ -199,10 +208,11 @@ public class PlayActivity extends BaseActivity {
 
     /**
      * kpm字符串匹配算法 通过分隔符匹配出下一帧的位置
+     *
      * @param pattern 0 0 0 1
-     * @param bytes 文件流数据
+     * @param bytes   文件流数据
      * @param start
-     * @param remain 文件流大小
+     * @param remain  文件流大小
      * @return
      */
     private int KMPMatch(byte[] pattern, byte[] bytes, int start, int remain) {

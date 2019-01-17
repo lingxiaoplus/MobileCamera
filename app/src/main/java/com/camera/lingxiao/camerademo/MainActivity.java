@@ -12,9 +12,6 @@ import android.hardware.SensorManager;
 import android.media.AudioFormat;
 import android.media.MediaRecorder;
 import android.net.Uri;
-import android.os.Environment;
-import androidx.annotation.NonNull;
-
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -22,16 +19,17 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.camera.lingxiao.camerademo.crash.ContentValue;
 import com.camera.lingxiao.camerademo.utils.CameraUtil;
 import com.camera.lingxiao.camerademo.utils.LogUtil;
-import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
 import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.Server;
+import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
 import com.media.lingxiao.harddecoder.encoder.H264Encoder;
 import com.media.lingxiao.harddecoder.encoder.H264EncoderConsumer;
-import com.media.lingxiao.harddecoder.Server;
 import com.media.lingxiao.harddecoder.model.VideoStreamModel;
 import com.media.lingxiao.harddecoder.tlv.ServerConfig;
 
@@ -39,24 +37,38 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
+import androidx.annotation.NonNull;
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
 import de.hdodenhof.circleimageview.CircleImageView;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
 
-public class MainActivity extends BaseActivity implements EasyPermissions.PermissionCallbacks, H264Encoder.PreviewFrameListener {
-    private String[] perms = {Manifest.permission.CAMERA,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.RECORD_AUDIO};
+public class MainActivity extends BaseActivity implements H264Encoder.PreviewFrameListener {
+    @BindView(R.id.surfaceView)
+    SurfaceView mSurfaceView;
+    @BindView(R.id.bt_recode)
+    Button recorderBtn;
+    @BindView(R.id.bt_encoder)
+    Button mBtnEncoder;
+    @BindView(R.id.bt_decoder)
+    Button mBtnDecoder;
+    @BindView(R.id.bt_muxer)
+    Button mBtnMuxer;
+    @BindView(R.id.tv_recode_time)
+    TextView tvRecodeTime;
+    @BindView(R.id.iv_local)
+    CircleImageView localImg;
+    @BindView(R.id.iv_shutter)
+    ImageView shutterImg;
+    @BindView(R.id.iv_change)
+    ImageView changeImg;
+
     public static final int RC_CAMERA_AND_LOCATION = 1;
-    private SurfaceView mSurfaceView;
     private SurfaceHolder mHolder;
     private int mCamerId = 0;
     private Camera mCamera;
-    private ImageView shutterImg, changeImg;
-    private CircleImageView localImg;
-    private Button recorderBtn;
     private CameraUtil mCameraUtil;
     private Uri localImgUri;
     private int mWidth = 1920;
@@ -65,32 +77,32 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
     private int biterate = 8500 * 1000;
     private H264Encoder mH264Encoder;
     private H264EncoderConsumer mH264EncoderConsumer;
-    private Button mBtnEncoder, mBtnDecoder;
-    private Button mBtnMuxer;
     private Server mServer;
     private AudioEncoder mAudioEncoder;
     private SensorManager mSensorManager;
     private long timestamp;
-    private static final float NS2S = 1.0f / 1000000000.0f;;
+    private static final float NS2S = 1.0f / 1000000000.0f;
+    ;
     private static final String TAG = MainActivity.class.getSimpleName();
     private SensorEventListener mSensorEventListener;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+    protected int getContentLayoutId() {
+        return R.layout.activity_main;
+    }
 
-        mSurfaceView = findViewById(R.id.surfaceView);
-        localImg = findViewById(R.id.iv_local);
-        shutterImg = findViewById(R.id.iv_shutter);
-        changeImg = findViewById(R.id.iv_change);
-        recorderBtn = findViewById(R.id.bt_recode);
-        mBtnEncoder = findViewById(R.id.bt_encoder);
-        mBtnDecoder = findViewById(R.id.bt_decoder);
-        mBtnMuxer = findViewById(R.id.bt_muxer);
-
+    @Override
+    protected void initWidget() {
+        super.initWidget();
         mHolder = mSurfaceView.getHolder();
-        methodRequiresTwoPermission();
+        if (checkCameraHardware(this)) {
+            mHolder.addCallback(new SurfaceCallback());
+                /*mHolder.setFixedSize(getResources().getDisplayMetrics().widthPixels,
+                        getResources().getDisplayMetrics().heightPixels);*/
+        } else {
+            Toast.makeText(this, "没有相机硬件", Toast.LENGTH_SHORT).show();
+        }
+
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         if (mSensorManager != null) {
 
@@ -118,8 +130,8 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                             //Log.i(TAG, "anglex:  "+ anglex);
                             //Log.i(TAG, "angley:  "+ angley);
                             //Log.i(TAG, "anglez:  "+ anglez);
-                            if (angley > 80) Log.i(TAG, "角度大于80 "+ String.valueOf(angley));
-                            if (angley < -80) Log.i(TAG, "角度小于80 "+ String.valueOf(angley));
+                            if (angley > 80) Log.i(TAG, "角度大于80 " + String.valueOf(angley));
+                            if (angley < -80) Log.i(TAG, "角度小于80 " + String.valueOf(angley));
                         }
                         timestamp = event.timestamp;
                     }
@@ -142,143 +154,86 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
             }
         }).start();
 
-
-        changeImg.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (null != mCameraUtil) {
-                    mCameraUtil.changeCamera(mHolder);
-                }
-            }
-        });
-
-        localImg.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (null == localImgUri) {
-                    return;
-                }
-                //打开指定的一张照片
-                Intent intent = new Intent();
-                intent.setAction(android.content.Intent.ACTION_VIEW);
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                intent.setDataAndType(localImgUri, "image/*");
-                startActivity(intent);
-            }
-        });
-
-        shutterImg.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                shutterImg.setEnabled(false);
-                if (null != mCameraUtil) {
-                    mCameraUtil
-                            .takePicture(System.currentTimeMillis() + ".jpg",
-                                    "CameraDemo");
-                }
-            }
-        });
-
-
-        mBtnEncoder.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //启动线程编码  注意宽高
-                if (null != mCameraUtil && null == mH264Encoder) {
-                    EncoderParams params = new EncoderParams();
-                    params.setVideoPath(ContentValue.MAIN_PATH + "/testYuv.yuv");
-                    mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
-                }
-
-                if (!mH264Encoder.isEncodering()) {
-                    mH264Encoder.StartEncoderThread();
-                    mH264Encoder.setPreviewListner(MainActivity.this);
-                    mBtnEncoder.setText("停止编码");
-                } else {
-                    mH264Encoder.stopThread();
-                    mBtnEncoder.setText("编码h264");
-                }
-            }
-        });
-        mBtnDecoder.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.setType("*/*");//无类型限制
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                startActivityForResult(intent, 1);
-            }
-        });
-
-        mBtnMuxer.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                //启动线程编码  注意宽高
-                if (null != mCameraUtil && null == mH264EncoderConsumer || mAudioEncoder == null) {
-                    EncoderParams params = new EncoderParams();
-                    params.setAudioSampleRate(44100);
-                    params.setAudioBitrate(1024 * 100);
-                    params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
-                    params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
-                    params.setAudioSouce(MediaRecorder.AudioSource.MIC);
-                    params.setVideoPath(ContentValue.MAIN_PATH + "/muxer-" + System.currentTimeMillis() + ".mp4");
-                    mH264EncoderConsumer = new H264EncoderConsumer(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
-                    mAudioEncoder = new AudioEncoder(params);
-                }
-
-                if (!mH264EncoderConsumer.isEncodering()) {
-                    mH264EncoderConsumer.StartEncoderThread();
-                    mAudioEncoder.startEncodeAacData();
-                    //mH264EncoderConsumer.setPreviewListner(MainActivity.this);
-                    mBtnMuxer.setText("停止混合编码");
-                } else {
-                    mH264EncoderConsumer.stopThread();
-                    mAudioEncoder.stopEncodeAac();
-                    mBtnMuxer.setText("音视频混合");
-                }
-            }
-        });
-
     }
 
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
-    }
-
-    @Override
-    public void onPermissionsGranted(int requestCode, @NonNull List<String> perms) {
-        //同意授权
-    }
-
-    @Override
-    public void onPermissionsDenied(int requestCode, @NonNull List<String> perms) {
-        //拒绝授权
-        if (EasyPermissions.somePermissionPermanentlyDenied(this, perms)) {
-            new AppSettingsDialog.Builder(this).setRationale("请同意相机权限").setTitle("提示").build().show();
+    @OnClick(R.id.iv_change)
+    public void changeCamera(View v){
+        if (null != mCameraUtil) {
+            mCameraUtil.changeCamera(mHolder);
         }
     }
+    @OnClick(R.id.iv_local)
+    public void showLocalImage(View v){
+        if (null == localImgUri) {
+            return;
+        }
+        //打开指定的一张照片
+        Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.setDataAndType(localImgUri, "image/*");
+        startActivity(intent);
+    }
+    @OnClick(R.id.iv_shutter)
+    public void takePicture(View v){
+        shutterImg.setEnabled(false);
+        if (null != mCameraUtil) {
+            mCameraUtil
+                    .takePicture(System.currentTimeMillis() + ".jpg",
+                            "CameraDemo");
+        }
+    }
+    @OnClick(R.id.bt_encoder)
+    public void enCodeH264(View v){
+        //启动线程编码  注意宽高
+        if (null != mCameraUtil && null == mH264Encoder) {
+            EncoderParams params = new EncoderParams();
+            params.setVideoPath(ContentValue.MAIN_PATH + "/testYuv.yuv");
+            mH264Encoder = new H264Encoder(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
+        }
 
-    private void methodRequiresTwoPermission() {
-        if (EasyPermissions.hasPermissions(this, perms)) {
-            if (checkCameraHardware(this)) {
-                mHolder.addCallback(new SurfaceCallback());
-                /*mHolder.setFixedSize(getResources().getDisplayMetrics().widthPixels,
-                        getResources().getDisplayMetrics().heightPixels);*/
-            } else {
-                Toast.makeText(this, "没有相机硬件", Toast.LENGTH_SHORT).show();
-            }
+        if (!mH264Encoder.isEncodering()) {
+            mH264Encoder.StartEncoderThread();
+            mH264Encoder.setPreviewListner(MainActivity.this);
+            mBtnEncoder.setText("停止编码");
         } else {
-            // Do not have permissions, request them now
-            EasyPermissions.requestPermissions(this, "需要同意权限",
-                    RC_CAMERA_AND_LOCATION, perms);
+            mH264Encoder.stopThread();
+            mBtnEncoder.setText("编码h264");
         }
     }
+    @OnClick(R.id.bt_decoder)
+    public void deCodeH264(View v){
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("*/*");//无类型限制
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(intent, 1);
+    }
+    @OnClick(R.id.bt_muxer)
+    public void muxerToMp4(View v){
+        //启动线程编码  注意宽高
+        if (null != mCameraUtil && null == mH264EncoderConsumer || mAudioEncoder == null) {
+            EncoderParams params = new EncoderParams();
+            params.setAudioSampleRate(44100);
+            params.setAudioBitrate(1024 * 100);
+            params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
+            params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
+            params.setAudioSouce(MediaRecorder.AudioSource.MIC);
+            params.setVideoPath(ContentValue.MAIN_PATH + "/muxer-" + System.currentTimeMillis() + ".mp4");
+            mH264EncoderConsumer = new H264EncoderConsumer(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
+            mAudioEncoder = new AudioEncoder(params);
+        }
 
+        if (!mH264EncoderConsumer.isEncodering()) {
+            mH264EncoderConsumer.StartEncoderThread();
+            mAudioEncoder.startEncodeAacData();
+            //mH264EncoderConsumer.setPreviewListner(MainActivity.this);
+            mBtnMuxer.setText("停止混合编码");
+        } else {
+            mH264EncoderConsumer.stopThread();
+            mAudioEncoder.stopEncodeAac();
+            mBtnMuxer.setText("音视频混合");
+        }
+    }
     private boolean checkCameraHardware(Context context) {
         if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
             return true;
@@ -338,7 +293,7 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
                             //给队列丢数据
                             mH264Encoder.putYUVData(data);
                         }
-                        if (mH264EncoderConsumer != null){
+                        if (mH264EncoderConsumer != null) {
                             mH264EncoderConsumer.addYUVData(data);
                         }
                     }
@@ -421,9 +376,8 @@ public class MainActivity extends BaseActivity implements EasyPermissions.Permis
         if (mServer != null) {
             mServer.stop();
         }
-
-        if (mSensorManager != null){
-            mSensorManager.unregisterListener(mSensorEventListener,mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
+        if (mSensorManager != null) {
+            mSensorManager.unregisterListener(mSensorEventListener, mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
         }
     }
 }

@@ -8,6 +8,7 @@ import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.Log;
 
+import com.camera.lingxiao.camerademo.crash.ContentValue;
 import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
 
 import java.io.File;
@@ -29,7 +30,7 @@ public class AudioUtil {
     private int autioFormat = AudioFormat.ENCODING_PCM_16BIT;
     private long mStartTimeStamp;
     private File mAudioFile;
-    private String mPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/AudioSimple/";
+    private String mPath = ContentValue.MAIN_PATH + "/AudioSimple/";
     private FileOutputStream mAudioFileOutput; //存储录音文件
     private FileInputStream mAudioPlayInputStream; //播放录音文件
     private boolean isRecording = false;
