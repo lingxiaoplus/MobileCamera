@@ -8,6 +8,7 @@ import android.os.Environment;
 import android.util.Log;
 
 import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.utils.YuvUtil;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -26,7 +27,6 @@ public class H264Encoder {
     private static int yuvqueuesize = 10;
     private ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<>(yuvqueuesize);
     private byte[] configbyte;
-    private static String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/testYuv.h264";
     private static final int TIMEOUT_USEC = 12000;
     private BufferedOutputStream outputStream;
     //private final MediaUtil mediaUtil;
@@ -114,14 +114,13 @@ public class H264Encoder {
                 byte[] input = null;
                 long pts =  0;
                 long generateIndex = 0;
-
                 while (isRuning) {
                     if (YUVQueue.size() > 0){
                         //从缓冲队列中取出一帧
                         input = YUVQueue.poll();  //队列不为空时返回队首值并移除；队列为空时返回null
                         byte[] yuv420sp = new byte[m_width*m_height*3/2];
                         //把待编码的视频帧转换为YUV420格式
-                        NV21ToNV12(input,yuv420sp,m_width,m_height);
+                        YuvUtil.NV21ToNV12(input,yuv420sp,m_width,m_height);
                         input = yuv420sp;
                     }
                     if (input != null) {
@@ -142,32 +141,9 @@ public class H264Encoder {
                                 generateIndex += 1;
                             }
 
-
-
                             int outputBufferIndex = mediaCodec.dequeueOutputBuffer(mbBufferInfo, TIMEOUT_USEC);
-                            /*if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
-                                //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
-                                MediaFormat format = mediaCodec.getOutputFormat();
-                                mediaUtil.addTrack(format,true);
-                            }*/
                             while (outputBufferIndex >= 0) {
                                 ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
-
-                                // 根据NALU类型判断帧类型
-                                /*int type = outputBuffer.get(4) & 0x1F;
-                                if (type == 5){
-                                    mediaUtil.putStrem(outputBuffer, mbBufferInfo, true);
-                                    isAddKeyFrame = true;
-                                    Log.i(TAG,"------编码混合视频数据 关键帧-----" + mbBufferInfo.size);
-                                }else if (type == 7 || type == 8){
-                                    Log.i(TAG, "------PPS、SPS帧(非图像数据)，忽略-------");
-                                }else {
-                                    if (isAddKeyFrame){
-                                        mediaUtil.putStrem(outputBuffer, mbBufferInfo, true);
-                                        Log.i(TAG,"------编码混合视频数据 普通帧-----" + mbBufferInfo.size);
-                                    }
-                                }*/
-
                                 byte[] outData = new byte[mbBufferInfo.size];
                                 outputBuffer.get(outData);
                                 if(mbBufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG){
@@ -185,6 +161,8 @@ public class H264Encoder {
                                 }else{
                                     if (h264Listener != null){
                                         h264Listener.onPreview(outData,m_width,m_height);
+                                    }else {
+                                        Log.e(TAG, "h264Listener is null");
                                     }
                                     outputStream.write(outData, 0, outData.length);
                                 }

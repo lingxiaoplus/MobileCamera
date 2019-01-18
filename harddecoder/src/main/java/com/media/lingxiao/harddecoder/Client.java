@@ -50,7 +50,7 @@ public class Client{
         ConnectFuture future = streamConnection.connect();
         future.awaitUninterruptibly();
         streamSession = future.getSession();
-        Log.i(TAG,"视频端口连接:"+streamSession);
+        Log.i(TAG,"视频端口连接:" + streamSession);
         streamConnected = streamSession != null;
         playing = true;
     }
@@ -135,6 +135,11 @@ public class Client{
                     session.closeNow();
                 }
             }
+        }
+
+        @Override
+        public void exceptionCaught(IoSession session, Throwable cause) throws Exception {
+            super.exceptionCaught(session, cause);
         }
     }
 

@@ -145,12 +145,11 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
             mSensorManager.registerListener(mSensorEventListener,
                     mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_UI);
         }
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                mServer = new Server();
-
-                mServer.start(2333, new ServerConfig());
+        new Thread(()-> {
+            mServer = new Server();
+            boolean ret = mServer.start(2333, new ServerConfig());
+            if(ret){
+                Log.d(TAG, "服务器启动成功，端口: 2333");
             }
         }).start();
 
@@ -234,6 +233,28 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
             mBtnMuxer.setText("音视频混合");
         }
     }
+    @OnClick(R.id.bt_recode)
+    public void onRecode(View v){
+        if (null != mCameraUtil) {
+            if (isRecorder) {
+                //如果是正在录制 就点击停止录制 不往后走了
+                mCameraUtil.stopRecorder();
+                recorderBtn.setText("录制");
+                return;
+            }
+
+            String filePath = ContentValue.MAIN_PATH + "/"
+                    + System.currentTimeMillis() + ".mp4";
+            isRecorder = mCameraUtil.initRecorder(filePath, mHolder);
+
+            if (isRecorder) {
+                Toast.makeText(getApplicationContext(), "文件保存在：" + filePath,
+                        Toast.LENGTH_LONG).show();
+                LogUtil.i("正在录制");
+                recorderBtn.setText("停止录制");
+            }
+        }
+    }
     private boolean checkCameraHardware(Context context) {
         if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
             return true;
@@ -273,55 +294,23 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
             try {
                 mCamera = Camera.open(mCamerId);
                 mCameraUtil = new CameraUtil(mCamera, mCamerId);
-                mCameraUtil.setPicTakenListener(new CameraUtil.PictureTakenCallBack() {
-                    @Override
-                    public void onPictureTaken(String result, File file) {
-                        if (result.isEmpty()) {
-                            localImgUri = Uri.fromFile(file);
-                            Toast.makeText(getApplicationContext(), "保存成功", Toast.LENGTH_SHORT).show();
-                            localImg.setImageURI(localImgUri);
-                        } else {
-                            Toast.makeText(getApplicationContext(), result, Toast.LENGTH_SHORT).show();
-                        }
-                        shutterImg.setEnabled(true);
+                mCameraUtil.setPicTakenListener((result,file)-> {
+                    if (result.isEmpty()) {
+                        localImgUri = Uri.fromFile(file);
+                        Toast.makeText(getApplicationContext(), "保存成功", Toast.LENGTH_SHORT).show();
+                        localImg.setImageURI(localImgUri);
+                    } else {
+                        Toast.makeText(getApplicationContext(), result, Toast.LENGTH_SHORT).show();
                     }
+                    shutterImg.setEnabled(true);
                 });
-                mCameraUtil.setPreviewCallback(new CameraUtil.PreviewCallback() {
-                    @Override
-                    public void onPreviewFrame(byte[] data, Camera camera) {
-                        if (null != mH264Encoder) {
-                            //给队列丢数据
-                            mH264Encoder.putYUVData(data);
-                        }
-                        if (mH264EncoderConsumer != null) {
-                            mH264EncoderConsumer.addYUVData(data);
-                        }
+                mCameraUtil.setPreviewCallback((data,camera)-> {
+                    if (null != mH264Encoder) {
+                        //给队列丢数据
+                        mH264Encoder.putYUVData(data);
                     }
-                });
-
-                recorderBtn.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (null != mCameraUtil) {
-                            if (isRecorder) {
-                                //如果是正在录制 就点击停止录制 不往后走了
-                                mCameraUtil.stopRecorder();
-                                recorderBtn.setText("录制");
-                                return;
-                            }
-
-                            String filePath = ContentValue.MAIN_PATH + "/"
-                                    + System.currentTimeMillis() + ".mp4";
-                            isRecorder = mCameraUtil.initRecorder(filePath, holder
-                            );
-
-                            if (isRecorder) {
-                                Toast.makeText(getApplicationContext(), "文件保存在：" + filePath,
-                                        Toast.LENGTH_LONG).show();
-                                LogUtil.i("正在录制");
-                                recorderBtn.setText("停止录制");
-                            }
-                        }
+                    if (mH264EncoderConsumer != null) {
+                        mH264EncoderConsumer.addYUVData(data);
                     }
                 });
             } catch (Exception e) {

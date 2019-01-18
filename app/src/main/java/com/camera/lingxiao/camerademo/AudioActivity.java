@@ -3,12 +3,13 @@ package com.camera.lingxiao.camerademo;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
 import com.camera.lingxiao.camerademo.crash.ContentValue;
-import com.camera.lingxiao.camerademo.utils.AudioUtil;
 import com.camera.lingxiao.camerademo.utils.FileUtil;
+import com.media.lingxiao.harddecoder.utils.AudioUtil;
 
 import java.util.List;
 
@@ -37,7 +38,7 @@ public class AudioActivity extends BaseActivity {
 
     private String mFileName = "test";
     private String mPath = ContentValue.MAIN_PATH + "/AudioSimple/";
-
+    private static final String TAG = AudioActivity.class.getSimpleName();
 
     @Override
     protected int getContentLayoutId() {
@@ -53,6 +54,22 @@ public class AudioActivity extends BaseActivity {
             actionBar.setTitle("音频采集");
         }
 
+        AudioUtil.getInstance().setAudioListener(new AudioUtil.AudioListener() {
+            @Override
+            public void onRecordFinish() {
+                mBtnAudio.setText("使用AudioTrack录音");
+            }
+
+            @Override
+            public void onPlayFinish() {
+                mBtnPlay.setText("使用AudioTrack播放");
+            }
+
+            @Override
+            public void onError(String errMsg) {
+                Log.e(TAG, "异常 onError: "+errMsg);
+            }
+        });
     }
 
 
@@ -62,17 +79,15 @@ public class AudioActivity extends BaseActivity {
             case R.id.button_audio:
                 if (AudioUtil.getInstance().isRecording()) {
                     AudioUtil.getInstance().stopAudioRecord();
-                    mBtnAudio.setText("使用AudioTrack录音");
                 } else {
                     mBtnAudio.setText("停止录音");
-                    AudioUtil.getInstance().startRecord(mFileName);
+                    AudioUtil.getInstance().startAudioRecord(mFileName);
                 }
                 break;
             case R.id.button_play:
-
                 if (AudioUtil.getInstance().isPlaying()) {
                     AudioUtil.getInstance().stopPlay();
-                    mBtnPlay.setText("使用AudioTrack播放");
+
                 } else {
                     showProgressDialog();
                     Observable.create(new ObservableOnSubscribe<String[]>() {

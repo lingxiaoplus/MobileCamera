@@ -62,43 +62,37 @@ public class MediaExtractActivity extends BaseActivity {
         String[] items = {"输入相对路径", "文件管理器选择"};
         AlertDialog.Builder builder = new AlertDialog.Builder(MediaExtractActivity.this);
         builder.setTitle("选择文件路径获取方式");
-        builder.setItems(items, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                dialogInterface.dismiss();
-                if (i == 0) {
-                    AlertDialog.Builder builder1 = new AlertDialog.Builder(MediaExtractActivity.this);
-                    final EditText editText = new EditText(MediaExtractActivity.this);
-                    builder1.setTitle("填写sd卡的文件路径如(/simple/x.mp4)");
-                    builder1.setView(editText);
-                    builder1.setPositiveButton("确定", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            String dir = editText.getText().toString().trim();
-                            String filePath = Environment.getExternalStorageDirectory().getAbsolutePath() + dir;
-                            File file = new File(filePath);
-                            if (!file.exists()) {
-                                Toast.makeText(getApplicationContext(), "文件不存在: " + filePath, Toast.LENGTH_SHORT).show();
-                                return;
-                            }
-                            if (type == FILE_SELECT_AUDIO) {
-                                mAudioPath = filePath;
-                            } else {
-                                mVideoPath = filePath;
-                            }
-                            dialog.dismiss();
-                        }
-                    });
-                    builder1.show();
-                } else {
-                    if (type == FILE_SELECT_AUDIO) {
-                        showFileChooser("选择一个音频文件", FILE_SELECT_AUDIO);
-                    } else {
-                        showFileChooser("选择一个视频文件", FILE_SELECT_VIDEO);
+        builder.setItems(items, (dialogInterface, i) -> {
+            dialogInterface.dismiss();
+            if (i == 0) {
+                AlertDialog.Builder builder1 = new AlertDialog.Builder(MediaExtractActivity.this);
+                final EditText editText = new EditText(MediaExtractActivity.this);
+                builder1.setTitle("填写sd卡的文件路径如(/simple/x.mp4)");
+                builder1.setView(editText);
+                builder1.setPositiveButton("确定", (dialog, which) -> {
+                    String dir = editText.getText().toString().trim();
+                    String filePath = Environment.getExternalStorageDirectory().getAbsolutePath() + dir;
+                    File file = new File(filePath);
+                    if (!file.exists()) {
+                        Toast.makeText(getApplicationContext(), "文件不存在: " + filePath, Toast.LENGTH_SHORT).show();
+                        return;
                     }
+                    if (type == FILE_SELECT_AUDIO) {
+                        mAudioPath = filePath;
+                    } else {
+                        mVideoPath = filePath;
+                    }
+                    dialog.dismiss();
+                });
+                builder1.show();
+            } else {
+                if (type == FILE_SELECT_AUDIO) {
+                    showFileChooser("选择一个音频文件", FILE_SELECT_AUDIO);
+                } else {
+                    showFileChooser("选择一个视频文件", FILE_SELECT_VIDEO);
                 }
-
             }
+
         });
         builder.show();
     }
@@ -124,31 +118,27 @@ public class MediaExtractActivity extends BaseActivity {
                     return;
                 }
                 mButtonStart.setEnabled(false);
-                new Thread(new Runnable() {
-                    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-                    @Override
-                    public void run() {
-                        try {
-                            File file = new File(mComFile);
-                            if (file.exists()) {
-                                file.delete();
-                            }
-                            file.createNewFile();
-                            int ret = MediaUtil.combineTwoVideos(mAudioPath, 0L, mVideoPath, file);
-                            if (ret == 0) {
-                                mButtonStart.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        mButtonStart.setEnabled(true);
-                                        Toast.makeText(getApplicationContext(), "完成", Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                            }
-                        } catch (IOException e) {
-                            e.printStackTrace();
+                new Thread(() -> {
+                    try {
+                        File file = new File(mComFile);
+                        if (file.exists()) {
+                            file.delete();
                         }
-
+                        file.createNewFile();
+                        int ret = MediaUtil.combineTwoVideos(mAudioPath, 0L, mVideoPath, file);
+                        if (ret == 0) {
+                            mButtonStart.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    mButtonStart.setEnabled(true);
+                                    Toast.makeText(getApplicationContext(), "完成", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
+
                 }).start();
 
                 break;
