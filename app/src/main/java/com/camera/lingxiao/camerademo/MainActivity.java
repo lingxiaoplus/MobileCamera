@@ -76,15 +76,10 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
     private int framerate = 30;
     private int biterate = 8500 * 1000;
     private H264Encoder mH264Encoder;
-    private H264EncoderConsumer mH264EncoderConsumer;
     private Server mServer;
-    private AudioEncoder mAudioEncoder;
-    private SensorManager mSensorManager;
     private long timestamp;
     private static final float NS2S = 1.0f / 1000000000.0f;
-    ;
     private static final String TAG = MainActivity.class.getSimpleName();
-    private SensorEventListener mSensorEventListener;
 
     @Override
     protected int getContentLayoutId() {
@@ -103,48 +98,6 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
             Toast.makeText(this, "没有相机硬件", Toast.LENGTH_SHORT).show();
         }
 
-        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        if (mSensorManager != null) {
-
-            mSensorEventListener = new SensorEventListener() {
-                @Override
-                public void onSensorChanged(SensorEvent event) {
-                    if (event.sensor == null) {    //如果没有传感器事件则返回
-                        Log.i(TAG, "没有传感器事件,返回");
-                        return;
-                    }
-                    //新建加速度计变化事件
-                    if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {//传感器发生改变获取加速度计传感器的数据
-                        if (timestamp != 0) {
-                            // 得到两次检测到手机旋转的时间差（纳秒），并将其转化为秒
-                            final float dT = (event.timestamp - timestamp) * NS2S;
-                            // 将手机在各个轴上的旋转角度相加，即可得到当前位置相对于初始位置的旋转弧度
-                            float x = event.values[0] * dT;
-                            float y = event.values[1] * dT;
-                            float z = event.values[2] * dT;
-                            // 将弧度转化为角度
-                            float anglex = (float) Math.toDegrees(x);
-                            float angley = (float) Math.toDegrees(y);
-                            float anglez = (float) Math.toDegrees(z);
-
-                            //Log.i(TAG, "anglex:  "+ anglex);
-                            //Log.i(TAG, "angley:  "+ angley);
-                            //Log.i(TAG, "anglez:  "+ anglez);
-                            if (angley > 80) Log.i(TAG, "角度大于80 " + String.valueOf(angley));
-                            if (angley < -80) Log.i(TAG, "角度小于80 " + String.valueOf(angley));
-                        }
-                        timestamp = event.timestamp;
-                    }
-                }
-
-                @Override
-                public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-                }
-            };
-            mSensorManager.registerListener(mSensorEventListener,
-                    mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_UI);
-        }
         new Thread(()-> {
             mServer = new Server();
             boolean ret = mServer.start(2333, new ServerConfig());
@@ -207,29 +160,21 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         startActivityForResult(intent, 1);
     }
+
     @OnClick(R.id.bt_muxer)
     public void muxerToMp4(View v){
         //启动线程编码  注意宽高
-        if (null != mCameraUtil && null == mH264EncoderConsumer || mAudioEncoder == null) {
-            EncoderParams params = new EncoderParams();
-            params.setAudioSampleRate(44100);
-            params.setAudioBitrate(1024 * 100);
-            params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
-            params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
-            params.setAudioSouce(MediaRecorder.AudioSource.MIC);
-            params.setVideoPath(ContentValue.MAIN_PATH + "/muxer-" + System.currentTimeMillis() + ".mp4");
-            mH264EncoderConsumer = new H264EncoderConsumer(mCameraUtil.getWidth(), mCameraUtil.getHeight(), framerate, biterate, params);
-            mAudioEncoder = new AudioEncoder(params);
-        }
-
-        if (!mH264EncoderConsumer.isEncodering()) {
-            mH264EncoderConsumer.StartEncoderThread();
-            mAudioEncoder.startEncodeAacData();
-            //mH264EncoderConsumer.setPreviewListner(MainActivity.this);
+        if (!H264EncoderConsumer.getInstance().isEncodering()) {
+            H264EncoderConsumer.getInstance()
+                    .setEncoderParams(getVideoParams())
+                    .StartEncodeH264Data();
+            AudioEncoder.getInstance()
+                    .setEncoderParams(getVideoParams())
+                    .startEncodeAacData(false);
             mBtnMuxer.setText("停止混合编码");
         } else {
-            mH264EncoderConsumer.stopThread();
-            mAudioEncoder.stopEncodeAac();
+            H264EncoderConsumer.getInstance().stopEncodeH264();
+            AudioEncoder.getInstance().stopEncodeAac();
             mBtnMuxer.setText("音视频混合");
         }
     }
@@ -261,6 +206,21 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
         } else {
             return false;
         }
+    }
+
+    private EncoderParams getVideoParams(){
+        EncoderParams params = new EncoderParams();
+        params.setAudioSampleRate(44100);
+        params.setAudioBitrate(1024 * 100);
+        params.setFrameWidth(mCameraUtil.getWidth());
+        params.setFrameHeight(mCameraUtil.getHeight());
+        params.setFrameRate(framerate);
+        params.setVideoQuality(EncoderParams.MIDDLE_VIDEO_BIT_RATE);
+        params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
+        params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
+        params.setAudioSouce(MediaRecorder.AudioSource.MIC);
+        params.setVideoPath(ContentValue.MAIN_PATH + "/muxer-" + System.currentTimeMillis() + ".mp4");
+        return params;
     }
 
     private boolean isRecorder;
@@ -309,9 +269,7 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
                         //给队列丢数据
                         mH264Encoder.putYUVData(data);
                     }
-                    if (mH264EncoderConsumer != null) {
-                        mH264EncoderConsumer.addYUVData(data);
-                    }
+                    H264EncoderConsumer.getInstance().addYUVData(data);
                 });
             } catch (Exception e) {
                 LogUtil.i("摄像头被占用");
@@ -350,7 +308,7 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
         if (resultCode == RESULT_OK) {
             if (requestCode == 1) {
                 Uri uri = data.getData();
-                String path = uri.getPath().toString();
+                String path = uri.getPath();
                 Toast.makeText(this, path, Toast.LENGTH_SHORT).show();
                 Intent intent = new Intent(getApplicationContext(), PlayActivity.class);
                 intent.putExtra("path", path);
@@ -364,9 +322,6 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
         super.onDestroy();
         if (mServer != null) {
             mServer.stop();
-        }
-        if (mSensorManager != null) {
-            mSensorManager.unregisterListener(mSensorEventListener, mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
         }
     }
 }

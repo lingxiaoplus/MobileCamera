@@ -26,16 +26,31 @@ public class AudioEncoder {
     private FileOutputStream fileOutputStream;
     private MediaCodec mMediaCodec;
 
-    private boolean isEncoding;
+    private static boolean isEncoding;
     private static final String TAG = AudioEncoder.class.getSimpleName();
     private MediaUtil mediaUtil;
     private AudioRecord mAudioRecord;
     private int mAudioRecordBufferSize;
+    private static AudioEncoder mAudioEncoder;
 
-    public AudioEncoder(EncoderParams params) {
+    private AudioEncoder(){
+
+    }
+
+    public static AudioEncoder getInstance(){
+        if (mAudioEncoder == null){
+            synchronized (AudioEncoder.class){
+                if (mAudioEncoder == null){
+                    mAudioEncoder = new AudioEncoder();
+                }
+            }
+        }
+        return mAudioEncoder;
+    }
+
+    public AudioEncoder setEncoderParams(EncoderParams params){
         try {
             mediaUtil = MediaUtil.getDefault();
-
             File root = Environment.getExternalStorageDirectory();
             File fileAAc = new File(root, "生成的aac.aac");
             if (!fileAAc.exists()) {
@@ -50,7 +65,6 @@ public class AudioEncoder {
             mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1); //声道
             mediaFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 1024 * 100);//作用于inputBuffer的大小
             mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);//采样率
-
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             //start（）后进入执行状态，才能做后续的操作
             mMediaCodec.start();
@@ -58,27 +72,12 @@ public class AudioEncoder {
             inputBufferArray = mMediaCodec.getInputBuffers();
             outputBufferArray = mMediaCodec.getOutputBuffers();
             startAudioRecord(params);
-
             mBufferInfo = new MediaCodec.BufferInfo();
-
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
 
-
-    private void startAudioRecord(EncoderParams params) {
-        // 计算AudioRecord所需输入缓存空间大小
-        mAudioRecordBufferSize = AudioRecord.getMinBufferSize(params.getAudioSampleRate(), params.getAudioChannelConfig(),
-                params.getAudioFormat());
-        if (mAudioRecordBufferSize < 1600) {
-            mAudioRecordBufferSize = 1600;
-        }
-        Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
-        mAudioRecord = new AudioRecord(params.getAudioSouce(), params.getAudioSampleRate(),
-                params.getAudioChannelConfig(), params.getAudioFormat(), mAudioRecordBufferSize);
-        // 开始录音
-        mAudioRecord.startRecording();
+        return mAudioEncoder;
     }
 
     public void stopAudioRecord() {
@@ -89,7 +88,11 @@ public class AudioEncoder {
         }
     }
 
-    public void startEncodeAacData() {
+    /**
+     *
+     * @param addADTS 是否添加adts信息  编码为aac需要
+     */
+    public void startEncodeAacData(final boolean addADTS) {
         isEncoding = true;
         Thread aacEncoderThread = new Thread(new Runnable() {
             @Override
@@ -99,12 +102,10 @@ public class AudioEncoder {
                         byte[] audioBuf = new byte[mAudioRecordBufferSize];
                         int readBytes = mAudioRecord.read(audioBuf, 0, mAudioRecordBufferSize);
                         if (readBytes > 0) {
-                            /*try {
-                                fileOutputStream.write(audioBuf,0,readBytes);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }*/
                             try {
+                                if (addADTS){
+                                    encodeAudioBytesWithADTS(audioBuf, readBytes);
+                                }
                                 encodeAudioBytes(audioBuf, readBytes);
                             } catch (Exception e) {
                                 e.printStackTrace();
@@ -119,6 +120,40 @@ public class AudioEncoder {
         });
         aacEncoderThread.start();
 
+    }
+
+    public void stopEncodeAac() {
+        stopAudioRecord();
+        if (mMediaCodec != null) {
+            mMediaCodec.stop();
+            mMediaCodec.release();
+            mMediaCodec = null;
+            isEncoding = false;
+            try {
+                fileOutputStream.flush();
+                fileOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        mediaUtil.release();
+    }
+    public static boolean isEncoding() {
+        return isEncoding;
+    }
+
+    private void startAudioRecord(EncoderParams params) {
+        // 计算AudioRecord所需输入缓存空间大小
+        mAudioRecordBufferSize = AudioRecord.getMinBufferSize(params.getAudioSampleRate(), params.getAudioChannelConfig(),
+                params.getAudioFormat());
+        if (mAudioRecordBufferSize < 1600) {
+            mAudioRecordBufferSize = 1600;
+        }
+        Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
+        mAudioRecord = new AudioRecord(params.getAudioSouce(), params.getAudioSampleRate(),
+                params.getAudioChannelConfig(), params.getAudioFormat(), mAudioRecordBufferSize);
+        // 开始录音
+        mAudioRecord.startRecording();
     }
 
     private void encodeAudioBytes(byte[] audioBuf, int readBytes) {
@@ -137,7 +172,7 @@ public class AudioEncoder {
             }
         }
 
-        int outputIndex = -1;
+        int outputIndex;
         do {
             outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);
             if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
@@ -185,25 +220,48 @@ public class AudioEncoder {
         } while (outputIndex >= 0 && isEncoding);
     }
 
-    public void stopEncodeAac() {
-        stopAudioRecord();
-        if (mMediaCodec != null) {
-            mMediaCodec.stop();
-            mMediaCodec.release();
-            mMediaCodec = null;
-            isEncoding = false;
+
+    /**
+     * 编码时加上adts头信息
+     * @param audioBuf
+     * @param readBytes
+     */
+    private void encodeAudioBytesWithADTS(byte[] audioBuf, int readBytes) {
+        int inputIndex = mMediaCodec.dequeueInputBuffer(-1);//获取输入缓存的index
+        if (inputIndex >= 0) {
+            ByteBuffer inputByteBuf = inputBufferArray[inputIndex];
+            if (audioBuf == null || readBytes <= 0) {
+                mMediaCodec.queueInputBuffer(inputIndex, 0, 0, getPTSUs(), MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+            } else {
+                inputByteBuf.clear();
+                inputByteBuf.put(audioBuf);//添加数据
+                inputByteBuf.limit(audioBuf.length);//限制ByteBuffer的访问长度
+                mMediaCodec.queueInputBuffer(inputIndex, 0, readBytes, getPTSUs(), 0);//把输入缓存塞回去给MediaCodec
+            }
+        }
+        int outputIndex;
+        byte[] frameBytes = null;
+        do {
+            outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);
+            ByteBuffer outPutBuf = outputBufferArray[outputIndex];
+            //给adts头字段空出7的字节
+            int length = mBufferInfo.size+7;
+            if(frameBytes == null || frameBytes.length < length){
+                frameBytes = new byte[length];
+            }
+            addADTStoPacket(frameBytes,length);
+            outPutBuf.get(frameBytes,7,mBufferInfo.size);
+
             try {
-                fileOutputStream.flush();
-                fileOutputStream.close();
+                fileOutputStream.write(frameBytes,0,length);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
-        mediaUtil.release();
+            mMediaCodec.releaseOutputBuffer(outputIndex, false);
+        } while (outputIndex >= 0 && isEncoding);
     }
 
     private long prevPresentationTimes = 0;
-
     private long getPTSUs() {
         long result = System.nanoTime() / 1000;
         if (result < prevPresentationTimes) {
@@ -212,4 +270,21 @@ public class AudioEncoder {
         return result;
     }
 
+    /**
+     * 给编码出的aac裸流添加adts头字段
+     * @param packet 要空出前7个字节，否则会搞乱数据
+     * @param packetLen
+     */
+    private void addADTStoPacket(byte[] packet, int packetLen) {
+        int profile = 2;  //AAC LC
+        int freqIdx = 4;  //44.1KHz
+        int chanCfg = 2;  //CPE
+        packet[0] = (byte)0xFF;
+        packet[1] = (byte)0xF9;
+        packet[2] = (byte)(((profile-1)<<6) + (freqIdx<<2) +(chanCfg>>2));
+        packet[3] = (byte)(((chanCfg&3)<<6) + (packetLen>>11));
+        packet[4] = (byte)((packetLen&0x7FF) >> 3);
+        packet[5] = (byte)(((packetLen&7)<<5) + 0x1F);
+        packet[6] = (byte)0xFC;
+    }
 }

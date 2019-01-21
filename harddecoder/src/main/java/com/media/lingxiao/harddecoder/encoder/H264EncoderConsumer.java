@@ -21,7 +21,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 
 public class H264EncoderConsumer {
-    private int m_width, m_height, m_framerate;
     private MediaCodec mediaCodec;
     private boolean isRuning;
     private static int yuvqueuesize = 10;
@@ -30,37 +29,39 @@ public class H264EncoderConsumer {
     private static String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/testYuv.h264";
     private static final int TIMEOUT_USEC = 10000;
     private BufferedOutputStream outputStream;
-    private final MediaUtil mediaUtil;
+    private MediaUtil mediaUtil;
     private static final String TAG = H264EncoderConsumer.class.getSimpleName();
-    private MediaCodec.BufferInfo mbBufferInfo;
+    //private MediaCodec.BufferInfo mbBufferInfo;
+    private static H264EncoderConsumer mH264Encoder;
+    private EncoderParams mEncoderParams;
 
-    private void createfile(){
-        File file = new File(path);
-        if(file.exists()){
-            file.delete();
+    public H264EncoderConsumer(){
+
+    }
+    public static H264EncoderConsumer getInstance(){
+        if (mH264Encoder == null){
+            synchronized (H264EncoderConsumer.class){
+                if (mH264Encoder == null){
+                    mH264Encoder = new H264EncoderConsumer();
+                }
+            }
         }
-        try {
-            outputStream = new BufferedOutputStream(new FileOutputStream(file));
-        } catch (Exception e){
-            e.printStackTrace();
-        }
+        return mH264Encoder;
     }
 
-    private int bit_rate = 3; //可以设置为 1 3 5
-    public H264EncoderConsumer(int width, int height, int framerate, int bitrate, EncoderParams params) {
-        m_width = width;
-        m_height = height;
-        m_framerate = framerate;
-
+    public H264EncoderConsumer setEncoderParams(EncoderParams params){
+        this.mEncoderParams = params;
+        int width = params.getFrameWidth();
+        int height = params.getFrameHeight();
         mediaUtil = MediaUtil.getDefault();
         mediaUtil.setVideoPath(params.getVideoPath());
         MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", width, height);
         //颜色空间设置为yuv420sp
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
         //比特率，也就是码率 ，值越高视频画面更清晰画质更高
-        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * bit_rate);
+        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * params.getVideoQuality());
         //帧率，一般设置为30帧就够了
-        mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, framerate);
+        mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, params.getFrameRate());
         //关键帧间隔  6.0以上无法控制，需要使用opengles渲染控制
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
         try {
@@ -73,46 +74,19 @@ public class H264EncoderConsumer {
         //设置为编码模式和编码格式
         mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         mediaCodec.start();
-        mbBufferInfo = new MediaCodec.BufferInfo();
+        //mbBufferInfo = new MediaCodec.BufferInfo();
         createfile();
-    }
-
-    private void NV21ToNV12(byte[] nv21, byte[] nv12, int width, int height) {
-        if (nv21 == null || nv12 == null) return;
-        int framesize = width * height;
-        int i = 0, j = 0;
-        System.arraycopy(nv21, 0, nv12, 0, framesize);
-        for (i = 0; i < framesize; i++) {
-            nv12[i] = nv21[i];
-        }
-        for (j = 0; j < framesize / 2; j += 2) {
-            nv12[framesize + j - 1] = nv21[j + framesize];
-        }
-        for (j = 0; j < framesize / 2; j += 2) {
-            nv12[framesize + j] = nv21[j + framesize - 1];
-        }
-    }
-
-    /*每帧都不遗漏，编码时每次去池子里取；
-     这样的缺点是，由于时间差会导致池子里数据会越来越多，
-     在点击“录制结束”时池子中的很多数据其实还没取完，
-     即编码要在录制结束操作之后很长时间才完成。*/
-    public void putYUVData(byte[] buffer) {
-        if (YUVQueue.size() >= yuvqueuesize) {
-            YUVQueue.poll();
-            Log.e(TAG, "丢帧");
-        }
-        YUVQueue.add(buffer);
+        return mH264Encoder;
     }
 
     public void addYUVData(byte[] yuvData){
         if (!isRuning && mediaCodec == null){
             return;
         }
-        byte[] yuv420sp = new byte[m_width * m_height * 3/2];
+        byte[] yuv420sp = new byte[mEncoderParams.getFrameWidth() * mEncoderParams.getFrameHeight() * 3/2];
         long before = System.currentTimeMillis();
         //NV21ToNV12(yuvData,yuv420sp,m_width,m_height);  //耗时110ms左右
-        YuvUtil.NV21ToNV12(yuvData,yuv420sp,m_width,m_height); //耗时35ms左右 解决卡顿问题
+        YuvUtil.NV21ToNV12(yuvData,yuv420sp,mEncoderParams.getFrameWidth(),mEncoderParams.getFrameHeight()); //耗时35ms左右 解决卡顿问题
         long after = System.currentTimeMillis();
         Log.e(TAG, "nv21转nv12耗时: "+(after-before)+"ms");
         feedMediaCodecData(yuv420sp);
@@ -137,9 +111,7 @@ public class H264EncoderConsumer {
         }
     }
 
-
-    private boolean isAddKeyFrame;
-    public void StartEncoderThread(){
+    public void StartEncodeH264Data(){
         Thread EncoderThread = new Thread(new Runnable() {
             @SuppressLint("NewApi")
             @Override
@@ -149,36 +121,11 @@ public class H264EncoderConsumer {
                 long generateIndex = 0;
                 byte[] input = null;
                 while (isRuning) {
-
-                    /*if (YUVQueue.size() > 0){
-                        //从缓冲队列中取出一帧
-                        input = YUVQueue.poll();
-                        byte[] yuv420sp = new byte[m_width * m_height * 3/2];
-                        //把待编码的视频帧转换为YUV420格式
-                        NV21ToNV12(input,yuv420sp,m_width,m_height);
-                        input = yuv420sp;
-                    }*/
-                    //if (input != null) {
                         try {
-                            /*long startMs = System.currentTimeMillis();
-                            //编码器输入缓冲区
-                            ByteBuffer[] inputBuffers = mediaCodec.getInputBuffers();
-                            //编码器输出缓冲区
-                            ByteBuffer[] outputBuffers = mediaCodec.getOutputBuffers();
-                            int inputBufferIndex = mediaCodec.dequeueInputBuffer(-1);
-                            if (inputBufferIndex >= 0) {
-                                pts = computePresentationTime(generateIndex);
-                                ByteBuffer inputBuffer = inputBuffers[inputBufferIndex];
-                                inputBuffer.clear();
-                                //把转换后的YUV420格式的视频帧放到编码器输入缓冲区中
-                                inputBuffer.put(input);
-                                mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, pts, MediaCodec.BUFFER_FLAG_KEY_FRAME);
-                                generateIndex += 1;
-                            }*/
                             //编码器输出缓冲区
                             ByteBuffer[] outputBuffers = mediaCodec.getOutputBuffers();
                             MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
-                            int outputBufferIndex = -1;
+                            int outputBufferIndex;
                             do {
                                 outputBufferIndex = mediaCodec.dequeueOutputBuffer(mBufferInfo, TIMEOUT_USEC);
                                 if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
@@ -219,6 +166,9 @@ public class H264EncoderConsumer {
                                         outputBuffer.limit(mBufferInfo.offset + mBufferInfo.size);
                                     }
                                     mediaUtil.putStrem(outputBuffer, mBufferInfo, true);
+                                    byte[] outData = new byte[mBufferInfo.size];
+                                    outputBuffer.get(outData);
+                                    outputStream.write(outData,0,outData.length);
                                     // 处理结束，释放输出缓存区资源
                                     mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                                 }
@@ -227,33 +177,19 @@ public class H264EncoderConsumer {
                         } catch (Throwable t) {
                             t.printStackTrace();
                         }
-                    /*}else {
-                        try {
-                            //这里可以根据实际情况调整编码速度
-                            Thread.sleep(500);
-                            Log.i(TAG, "调整编码速度");
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }*/
                 }
             }
         });
         EncoderThread.start();
     }
-
-    private void stopEncoder() {
-        if (null != mediaCodec){
-            mediaCodec.stop();
-            mediaCodec.release();
-            mediaCodec = null;
-        }
-    }
-
-    public void stopThread(){
+    public void stopEncodeH264(){
         isRuning = false;
         try {
-            stopEncoder();
+            if (null != mediaCodec){
+                mediaCodec.stop();
+                mediaCodec.release();
+                mediaCodec = null;
+            }
             outputStream.flush();
             outputStream.close();
             h264Listener = null;
@@ -262,13 +198,26 @@ public class H264EncoderConsumer {
         }
         mediaUtil.release();
     }
+
     /**
      * 计算pts
      * @param frameIndex
      * @return
      */
     private long computePresentationTime(long frameIndex) {
-        return 132 + frameIndex * 1000000 / m_framerate;
+        return 132 + frameIndex * 1000000 / mEncoderParams.getFrameRate();
+    }
+
+    private void createfile(){
+        File file = new File(path);
+        if(file.exists()){
+            file.delete();
+        }
+        try {
+            outputStream = new BufferedOutputStream(new FileOutputStream(file));
+        } catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
     public boolean isEncodering(){

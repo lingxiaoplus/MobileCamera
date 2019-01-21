@@ -117,7 +117,6 @@ public class Client{
                     }
                     Log.i(TAG,"回调："+h264Segment.length);
                     mDecoder.handleH264(h264Segment);
-
                     break;
             }
         }

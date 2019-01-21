@@ -1,22 +1,21 @@
 package com.media.lingxiao.harddecoder;
 
 public class EncoderParams {
-    // 码率等级
-    public enum Quality{
-        LOW, MIDDLE, HIGH
-    }
-    // 帧率
-    public enum FrameRate{
-        _20fps,_25fps,_30fps
-    }
     public static final int DEFAULT_AUDIO_SAMPLE_RATE = 44100; //所有android系统都支持的采样率
     public static final int DEFAULT_CHANNEL_COUNT = 1; //单声道
     public static final int CHANNEL_COUNT_STEREO = 2;  //立体声
-    public static final int DEFAULT_BIT_RATE = 96000;  //默认比特率
+    public static final int DEFAULT_AUDIO_BIT_RATE = 96000;  //默认比特率
+
+    public static final int LOW_VIDEO_BIT_RATE = 1;  //默认比特率
+    public static final int MIDDLE_VIDEO_BIT_RATE = 3;  //默认比特率
+    public static final int HIGH_VIDEO_BIT_RATE = 5;  //默认比特率
+
     private String videoPath;
     private int frameWidth;
     private int frameHeight;
-    private int audioBitrate = DEFAULT_BIT_RATE;   // 音频编码比特率
+    private int frameRate; // 帧率
+    private int videoQuality = MIDDLE_VIDEO_BIT_RATE; //码率等级
+    private int audioBitrate = DEFAULT_AUDIO_BIT_RATE;   // 音频编码比特率
     private int audioChannelCount = DEFAULT_CHANNEL_COUNT; // 通道数
     private int audioSampleRate = DEFAULT_AUDIO_SAMPLE_RATE;   // 采样率
 
@@ -24,8 +23,6 @@ public class EncoderParams {
     private int audioFormat;    // 采样精度
     private int audioSouce;     // 音频来源
 
-    private Quality bitRateQuality;   // 视频编码码率,0(低),1(中),2(高)
-    private FrameRate frameRateDegree; // 视频编码帧率,0(低),1(中),2(高)
 
     public EncoderParams(){
 
@@ -103,19 +100,19 @@ public class EncoderParams {
         this.audioSouce = audioSouce;
     }
 
-    public Quality getBitRateQuality() {
-        return bitRateQuality;
+    public int getFrameRate() {
+        return frameRate;
     }
 
-    public void setBitRateQuality(Quality bitRateQuality) {
-        this.bitRateQuality = bitRateQuality;
+    public void setFrameRate(int frameRate) {
+        this.frameRate = frameRate;
     }
 
-    public FrameRate getFrameRateDegree() {
-        return frameRateDegree;
+    public int getVideoQuality() {
+        return videoQuality;
     }
 
-    public void setFrameRateDegree(FrameRate frameRateDegree) {
-        this.frameRateDegree = frameRateDegree;
+    public void setVideoQuality(int videoQuality) {
+        this.videoQuality = videoQuality;
     }
 }
