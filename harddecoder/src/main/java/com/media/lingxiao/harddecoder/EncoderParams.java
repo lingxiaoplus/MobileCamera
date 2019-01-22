@@ -10,7 +10,8 @@ public class EncoderParams {
     public static final int MIDDLE_VIDEO_BIT_RATE = 3;  //默认比特率
     public static final int HIGH_VIDEO_BIT_RATE = 5;  //默认比特率
 
-    private String videoPath;
+    private String videoPath;  //视频文件的全路径
+    private String audioPath;  //音频文件全路径
     private int frameWidth;
     private int frameHeight;
     private int frameRate; // 帧率
@@ -114,5 +115,13 @@ public class EncoderParams {
 
     public void setVideoQuality(int videoQuality) {
         this.videoQuality = videoQuality;
+    }
+
+    public String getAudioPath() {
+        return audioPath;
+    }
+
+    public void setAudioPath(String audioPath) {
+        this.audioPath = audioPath;
     }
 }

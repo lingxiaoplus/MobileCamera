@@ -52,7 +52,8 @@ public class AudioEncoder {
         try {
             mediaUtil = MediaUtil.getDefault();
             File root = Environment.getExternalStorageDirectory();
-            File fileAAc = new File(root, "生成的aac.aac");
+
+            File fileAAc = new File(params.getAudioPath());
             if (!fileAAc.exists()) {
                 fileAAc.createNewFile();
             }
@@ -80,7 +81,7 @@ public class AudioEncoder {
         return mAudioEncoder;
     }
 
-    public void stopAudioRecord() {
+    private void stopAudioRecord() {
         if (mAudioRecord != null) {
             mAudioRecord.stop();
             mAudioRecord.release();
@@ -90,7 +91,7 @@ public class AudioEncoder {
 
     /**
      *
-     * @param addADTS 是否添加adts信息  编码为aac需要
+     * @param addADTS 是否添加adts信息  编码为aac需要 混合mp4时不需要添加
      */
     public void startEncodeAacData(final boolean addADTS) {
         isEncoding = true;

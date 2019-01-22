@@ -1,6 +1,8 @@
 package com.camera.lingxiao.camerademo;
 
 import android.content.DialogInterface;
+import android.media.AudioFormat;
+import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -9,6 +11,8 @@ import android.widget.Button;
 
 import com.camera.lingxiao.camerademo.crash.ContentValue;
 import com.camera.lingxiao.camerademo.utils.FileUtil;
+import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
 import com.media.lingxiao.harddecoder.utils.AudioUtil;
 
 import java.util.List;
@@ -130,6 +134,17 @@ public class AudioActivity extends BaseActivity {
 
                 break;
             case R.id.button_encode:
+                if (AudioEncoder.isEncoding()){
+                    AudioEncoder.getInstance().stopEncodeAac();
+                    mBtnEncoder.setText("使用mediacodec编码pcm为aac");
+                }else {
+                    AudioEncoder.getInstance()
+                            .setEncoderParams(getAudioParams())
+                            .startEncodeAacData(true);
+                    mBtnEncoder.setText("停止解码");
+                }
+
+
                 break;
             case R.id.button_decode:
                 break;
@@ -147,5 +162,16 @@ public class AudioActivity extends BaseActivity {
             }
         });
         builder.show();
+    }
+
+    private EncoderParams getAudioParams(){
+        EncoderParams params = new EncoderParams();
+        params.setAudioSampleRate(44100);
+        params.setAudioBitrate(1024 * 100);
+        params.setAudioChannelConfig(AudioFormat.CHANNEL_IN_MONO);
+        params.setAudioFormat(AudioFormat.ENCODING_PCM_16BIT);
+        params.setAudioSouce(MediaRecorder.AudioSource.MIC);
+        params.setAudioPath(ContentValue.MAIN_PATH + "/aac-" + System.currentTimeMillis() + ".aac");
+        return params;
     }
 }

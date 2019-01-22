@@ -22,7 +22,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 public class H264EncoderConsumer {
     private MediaCodec mediaCodec;
-    private boolean isRuning;
+    private static boolean isRuning = false;
     private static int yuvqueuesize = 10;
     private ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<>(yuvqueuesize);
     private byte[] configbyte;
@@ -169,6 +169,10 @@ public class H264EncoderConsumer {
                                     byte[] outData = new byte[mBufferInfo.size];
                                     outputBuffer.get(outData);
                                     outputStream.write(outData,0,outData.length);
+                                    if (h264Listener != null){
+                                        h264Listener.onPreview(outData,
+                                                mEncoderParams.getFrameWidth(),mEncoderParams.getFrameHeight());
+                                    }
                                     // 处理结束，释放输出缓存区资源
                                     mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                                 }
@@ -220,7 +224,7 @@ public class H264EncoderConsumer {
         }
     }
 
-    public boolean isEncodering(){
+    public static boolean isEncodering(){
         return isRuning;
     }
 
