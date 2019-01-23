@@ -2,6 +2,7 @@ package com.media.lingxiao.harddecoder.utils;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -33,10 +34,12 @@ public class CameraUtil {
     private boolean mInitCameraResult;  //相机是否初始化成功
     private static final String TAG = CameraUtil.class.getSimpleName();
 
+
     public CameraUtil(Camera camera, int cameraId) {
         mCamera = camera;
         mCameraId = cameraId;
     }
+
 
     /**
      * 初始化相机
@@ -45,8 +48,8 @@ public class CameraUtil {
      * @param height
      */
     //private ReentrantLock lock = new ReentrantLock();
-    public void initCamera(int width, int height, Activity activity) {
-        mActivity = activity;
+    public void initCamera(int width, int height) {
+        //mActivity = activity;
         Camera.Parameters parameters = mCamera.getParameters();
         parameters.setPreviewFormat(ImageFormat.NV21);
         //根据设置的宽高 和手机支持的分辨率对比计算出合适的宽高算法
@@ -123,12 +126,12 @@ public class CameraUtil {
     /**
      * 得到摄像头默认旋转角度后，旋转回来  注意是逆时针旋转
      *
-     * @param activity
+     * @param rotation
      */
-    private void setCameraDisplayOrientation(Activity activity) {
+    private void setCameraDisplayOrientation(int rotation) {
         Camera.CameraInfo info = new Camera.CameraInfo();
         Camera.getCameraInfo(mCameraId, info);
-        int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+        //int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
         int degrees = 0;
         switch (rotation) {
             case Surface.ROTATION_0:
@@ -248,7 +251,7 @@ public class CameraUtil {
 
                     try {
                         mCamera.setPreviewDisplay(holder);
-                        initCamera(mWidth, mHeight, mActivity);
+                        initCamera(mWidth, mHeight);
                     } catch (Exception e) {
                         e.printStackTrace();
                         mInitCameraResult = false;
@@ -266,7 +269,7 @@ public class CameraUtil {
 
                     try {
                         mCamera.setPreviewDisplay(holder);
-                        initCamera(mWidth, mHeight, mActivity);
+                        initCamera(mWidth, mHeight);
                     } catch (Exception e) {
                         e.printStackTrace();
                         mInitCameraResult = false;
