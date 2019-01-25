@@ -19,10 +19,8 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.TextureView;
+import android.view.ViewGroup;
 import android.widget.Toast;
-
-import com.media.lingxiao.harddecoder.encoder.H264EncoderConsumer;
-import com.media.lingxiao.harddecoder.utils.CameraUtil;
 import com.media.lingxiao.harddecoder.utils.FileUtil;
 import com.media.lingxiao.harddecoder.utils.YuvUtil;
 
@@ -81,6 +79,14 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                     .getDefaultDisplay()
                     .getRotation();
             openCamera(frameWidth, frameHeight, surface, mRotation);
+
+            ViewGroup.LayoutParams layoutParams = this.getLayoutParams();
+            float scale = (float) frameHeight / frameWidth;
+            layoutParams.width = width;
+            float scaleHeight = width * 1.0f / scale;
+            layoutParams.height = (int) scaleHeight;
+            setLayoutParams(layoutParams);
+
             setCameraCallback();
         } catch (Exception e) {
             Log.e(TAG,"摄像头被占用");
@@ -106,6 +112,22 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
     }
 
 
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int widthSpecMode = MeasureSpec.getMode(widthMeasureSpec);
+        int widthSpecSize = MeasureSpec.getSize(widthMeasureSpec);
+        int heightSpecMode = MeasureSpec.getMode(heightMeasureSpec);
+        int heightSpecSize = MeasureSpec.getSize(heightMeasureSpec);
+        if (widthSpecMode == MeasureSpec.AT_MOST && heightSpecMode == MeasureSpec.AT_MOST){
+            setMeasuredDimension(frameWidth,frameHeight);
+        }else if (widthSpecMode == MeasureSpec.AT_MOST){
+            setMeasuredDimension(frameWidth,heightSpecSize);
+        }else if (heightSpecMode == MeasureSpec.AT_MOST){
+            setMeasuredDimension(widthSpecSize,frameHeight);
+        }
+    }
+
     /**
      * 初始化相机
      *
@@ -114,7 +136,6 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
      */
     //private ReentrantLock lock = new ReentrantLock();
     private void openCamera(int width, int height,SurfaceTexture texture,int rotation) throws IOException {
-        //mActivity = activity;
         mCamera = Camera.open(mCameraId);
         Camera.Parameters parameters = mCamera.getParameters();
         parameters.setPreviewFormat(ImageFormat.NV21);

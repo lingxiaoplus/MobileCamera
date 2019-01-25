@@ -65,7 +65,6 @@ public class CameraUtil {
         if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)){
             parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
         }
-
         mCamera.setParameters(parameters);
         setCameraDisplayOrientation(activity);
         //开启预览

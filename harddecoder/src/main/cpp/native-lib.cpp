@@ -111,6 +111,7 @@ Java_com_media_lingxiao_harddecoder_utils_YuvUtil_rotateYUVDegree270AndMirror(JN
     // Rotate and mirror the Y luma
     int i = 0;
     int maxY = 0;
+
     for (int x = imageWidth - 1; x >= 0; x--) {
         maxY = imageWidth * (imageHeight - 1) + x * 2;
         for (int y = 0; y < imageHeight; y++) {
