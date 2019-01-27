@@ -5,10 +5,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     >
-    <SurfaceView
+    <com.media.lingxiao.harddecoder.CameraView
         android:id="@+id/surfaceView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        app:frame_width="1920"
+        app:frame_height="1080"
+        app:camera_back="true"
         />
     <LinearLayout
         android:layout_width="match_parent"

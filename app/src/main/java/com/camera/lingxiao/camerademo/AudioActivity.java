@@ -12,6 +12,7 @@ import android.widget.Button;
 import com.camera.lingxiao.camerademo.crash.ContentValue;
 import com.camera.lingxiao.camerademo.utils.FileUtil;
 import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.decoder.AudioDecoder;
 import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
 import com.media.lingxiao.harddecoder.utils.AudioUtil;
 
@@ -43,6 +44,8 @@ public class AudioActivity extends BaseActivity {
     private String mFileName = "test";
     private String mPath = ContentValue.MAIN_PATH + "/AudioSimple/";
     private static final String TAG = AudioActivity.class.getSimpleName();
+    private static final int PLAY_PCM = 0;
+    private static final int DECODE_TO_PCM = 1;
 
     @Override
     protected int getContentLayoutId() {
@@ -93,43 +96,7 @@ public class AudioActivity extends BaseActivity {
                     AudioUtil.getInstance().stopPlay();
 
                 } else {
-                    showProgressDialog();
-                    Observable.create(new ObservableOnSubscribe<String[]>() {
-                        @Override
-                        public void subscribe(ObservableEmitter<String[]> emitter) {
-                            List<String> pcmList = FileUtil.getFileList(mPath);
-                            String[] files = pcmList.toArray(new String[pcmList.size()]);
-                            emitter.onNext(files);
-                            emitter.onComplete();
-
-                        }
-                    }).subscribeOn(Schedulers.io())
-                            .observeOn(AndroidSchedulers.mainThread())
-                            .subscribe(new Observer<String[]>() {
-                                private Disposable mDisposable;
-
-                                @Override
-                                public void onSubscribe(Disposable d) {
-                                    mDisposable = d;
-                                }
-
-                                @Override
-                                public void onNext(String[] files) {
-                                    cancelProgressDialog();
-                                    showDialog(files);
-                                    mDisposable.dispose();
-                                }
-
-                                @Override
-                                public void onError(Throwable e) {
-                                    e.printStackTrace();
-                                }
-
-                                @Override
-                                public void onComplete() {
-
-                                }
-                            });
+                    getFileList(PLAY_PCM);
                 }
 
                 break;
@@ -141,24 +108,79 @@ public class AudioActivity extends BaseActivity {
                     AudioEncoder.getInstance()
                             .setEncoderParams(getAudioParams())
                             .startEncodeAacData(true);
-                    mBtnEncoder.setText("停止解码");
+                    mBtnEncoder.setText("停止编码");
                 }
-
-
                 break;
             case R.id.button_decode:
+                if (AudioDecoder.isDncoding()){
+                    AudioDecoder.getInstance().stopDecode();
+                    mBtnEncoder.setText("使用mediacodec解码aac为pcm");
+                }else {
+                    getFileList(DECODE_TO_PCM);
+                }
                 break;
         }
     }
-    private void showDialog(final String[] files) {
+
+    private void getFileList(int type){
+        showProgressDialog();
+        Observable.create(new ObservableOnSubscribe<String[]>() {
+            @Override
+            public void subscribe(ObservableEmitter<String[]> emitter) {
+                List<String> pcmList = FileUtil.getFileList(mPath);
+                String[] files = pcmList.toArray(new String[pcmList.size()]);
+                emitter.onNext(files);
+                emitter.onComplete();
+
+            }
+        }).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<String[]>() {
+                    private Disposable mDisposable;
+
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        mDisposable = d;
+                    }
+
+                    @Override
+                    public void onNext(String[] files) {
+                        cancelProgressDialog();
+                        showDialog(files,type);
+                        mDisposable.dispose();
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        e.printStackTrace();
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+    }
+
+    private void showDialog(final String[] files,int type) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("请选择播放文件");
         builder.setItems(files, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                AudioUtil.getInstance().startPlay(files[i]);
-                mBtnPlay.setText("停止播放");
-                dialogInterface.dismiss();
+                if (type == PLAY_PCM){
+                    AudioUtil.getInstance().startPlay(files[i]);
+                    mBtnPlay.setText("停止播放");
+                    dialogInterface.dismiss();
+                }else if (type == DECODE_TO_PCM){
+                    EncoderParams params = getAudioParams();
+                    params.setAudioPath("pcm_"+System.currentTimeMillis()+".pcm");
+                    AudioDecoder.getInstance()
+                            .setEncoderParams(getAudioParams())
+                            .startDecode(files[i]);
+                    mBtnEncoder.setText("停止解码");
+                }
+
             }
         });
         builder.show();
@@ -174,4 +196,5 @@ public class AudioActivity extends BaseActivity {
         params.setAudioPath(ContentValue.MAIN_PATH + "/aac-" + System.currentTimeMillis() + ".aac");
         return params;
     }
+
 }

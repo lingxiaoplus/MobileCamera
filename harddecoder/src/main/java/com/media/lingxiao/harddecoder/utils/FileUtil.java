@@ -182,11 +182,10 @@ public class FileUtil {
      * 保存文件
      *
      * @param bm
-     * @param filename
      * @throws IOException
      */
-    public static File saveFile(Bitmap bm, String filename, String filepath) throws IOException {
-        File file = new File(filepath + filename);
+    public static File saveFile(Bitmap bm, String filepath) throws IOException {
+        File file = new File(filepath);
         if (file.exists()) {
             file.delete();
         }

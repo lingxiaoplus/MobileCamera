@@ -22,7 +22,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 public class H264EncoderConsumer {
     private MediaCodec mediaCodec;
-    private static boolean isRuning = false;
+    private static volatile boolean isRuning = false;
     private static int yuvqueuesize = 10;
     private ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<>(yuvqueuesize);
     private byte[] configbyte;
@@ -182,12 +182,15 @@ public class H264EncoderConsumer {
                             t.printStackTrace();
                         }
                 }
+                stopEncodeH264Sync();
             }
         });
         EncoderThread.start();
     }
     public void stopEncodeH264(){
         isRuning = false;
+    }
+    private void stopEncodeH264Sync(){
         try {
             if (null != mediaCodec){
                 mediaCodec.stop();

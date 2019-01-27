@@ -26,7 +26,7 @@ public class AudioEncoder {
     private FileOutputStream fileOutputStream;
     private MediaCodec mMediaCodec;
 
-    private static boolean isEncoding;
+    private static volatile boolean isEncoding;
     private static final String TAG = AudioEncoder.class.getSimpleName();
     private MediaUtil mediaUtil;
     private AudioRecord mAudioRecord;
@@ -51,13 +51,6 @@ public class AudioEncoder {
     public AudioEncoder setEncoderParams(EncoderParams params){
         try {
             mediaUtil = MediaUtil.getDefault();
-            File root = Environment.getExternalStorageDirectory();
-
-            File fileAAc = new File(params.getAudioPath());
-            if (!fileAAc.exists()) {
-                fileAAc.createNewFile();
-            }
-            fileOutputStream = new FileOutputStream(fileAAc.getAbsoluteFile());
             mMediaCodec = MediaCodec.createEncoderByType(mime);
             MediaFormat mediaFormat = new MediaFormat();
             mediaFormat.setString(MediaFormat.KEY_MIME, mime);
@@ -74,6 +67,14 @@ public class AudioEncoder {
             outputBufferArray = mMediaCodec.getOutputBuffers();
             startAudioRecord(params);
             mBufferInfo = new MediaCodec.BufferInfo();
+
+            if (null != params.getAudioPath()){
+                File fileAAc = new File(params.getAudioPath());
+                if (!fileAAc.exists()) {
+                    fileAAc.createNewFile();
+                }
+                fileOutputStream = new FileOutputStream(fileAAc.getAbsoluteFile());
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -81,13 +82,7 @@ public class AudioEncoder {
         return mAudioEncoder;
     }
 
-    private void stopAudioRecord() {
-        if (mAudioRecord != null) {
-            mAudioRecord.stop();
-            mAudioRecord.release();
-            mAudioRecord = null;
-        }
-    }
+
 
     /**
      *
@@ -115,33 +110,18 @@ public class AudioEncoder {
                         }
                     }
                 }
-                stopAudioRecord();
-                stopEncodeAac();
+                stopEncodeAacSync();
             }
         });
         aacEncoderThread.start();
 
     }
 
-    public void stopEncodeAac() {
-        stopAudioRecord();
-        if (mMediaCodec != null) {
-            mMediaCodec.stop();
-            mMediaCodec.release();
-            mMediaCodec = null;
-            isEncoding = false;
-            try {
-                fileOutputStream.flush();
-                fileOutputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        mediaUtil.release();
-    }
+
     public static boolean isEncoding() {
         return isEncoding;
     }
+
 
     private void startAudioRecord(EncoderParams params) {
         // 计算AudioRecord所需输入缓存空间大小
@@ -287,5 +267,32 @@ public class AudioEncoder {
         packet[4] = (byte)((packetLen&0x7FF) >> 3);
         packet[5] = (byte)(((packetLen&7)<<5) + 0x1F);
         packet[6] = (byte)0xFC;
+    }
+
+    public void stopEncodeAac() {
+        isEncoding = false;
+
+    }
+
+    private void stopEncodeAacSync() {
+        if (mAudioRecord != null) {
+            mAudioRecord.stop();
+            mAudioRecord.release();
+            mAudioRecord = null;
+        }
+        if (mMediaCodec != null) {
+            mMediaCodec.stop();
+            mMediaCodec.release();
+            mMediaCodec = null;
+            try {
+                if (fileOutputStream != null){
+                    fileOutputStream.flush();
+                    fileOutputStream.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        mediaUtil.release();
     }
 }

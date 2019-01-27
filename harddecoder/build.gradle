@@ -16,6 +16,7 @@ android {
             cmake {
                 cppFlags ""
                 //cppFlags "-frtti -fexceptions"
+                arguments '-DANDROID_STL=c++_shared'
             }
         }
         ndk{

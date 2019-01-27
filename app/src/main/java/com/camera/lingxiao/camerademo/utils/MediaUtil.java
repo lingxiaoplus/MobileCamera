@@ -182,7 +182,7 @@ public class MediaUtil {
         }
 
     }
-    public synchronized void putStrem(ByteBuffer outputBuffer,MediaCodec.BufferInfo bufferInfo,boolean isVideo){
+    /*public synchronized void putStrem(ByteBuffer outputBuffer,MediaCodec.BufferInfo bufferInfo,boolean isVideo){
         if (mAudioTrackIndex == -1 || mVideoTrackIndex == -1){
             LogUtil.d("音频轨和视频轨没有添加");
         }
@@ -203,14 +203,14 @@ public class MediaUtil {
         mVideoTrackIndex = mAudioTrackIndex = -1;
         addTrack(mVideoFormat, true);
         addTrack(mAudioFormat, false);
-        /*try {
+        *//*try {
             mMuxer = new MediaMuxer(mFilePath + "-" + ++index + ".mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
         } catch (IOException e) {
             e.printStackTrace();
-        }*/
+        }*//*
 
-    }
+    }*/
 
     /**
      * 封装需要传输的数据类型
