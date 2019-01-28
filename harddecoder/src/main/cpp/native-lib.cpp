@@ -2,6 +2,7 @@
 #include <string>
 #include <omp.h>
 #include <android/log.h>
+#include "libyuv/include/libyuv.h"
 #define LOG_TAG "FACESDK"
 
 #define DEBUG
@@ -208,4 +209,99 @@ Java_com_media_lingxiao_harddecoder_utils_YuvUtil_NV21ToNV12(JNIEnv *env, jclass
     }
     env->ReleaseByteArrayElements(nv21_, nv21, 0);
     env->ReleaseByteArrayElements(nv12_, nv12, 0);
+}
+using namespace libyuv;
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_media_lingxiao_harddecoder_utils_YuvUtil_NV21ToI420(JNIEnv *env, jclass type,
+                                                             jbyteArray input_, jbyteArray output_,
+                                                             jint width, jint height) {
+    jbyte *input = env->GetByteArrayElements(input_, NULL);
+    jbyte *output = env->GetByteArrayElements(output_, NULL);
+
+    NV21ToI420((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width,
+               (uint8_t *)output, width,
+               (uint8_t *)output + (width * height), width / 2,
+               (uint8_t *)output + (width * height * 5 / 4), width / 2,
+               width, height);
+
+    env->ReleaseByteArrayElements(input_, input, 0);
+    env->ReleaseByteArrayElements(output_, output, 0);
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_media_lingxiao_harddecoder_utils_YuvUtil_RotateI420(JNIEnv *env, jclass type,
+                                                             jbyteArray input_, jbyteArray output_,
+                                                             jint width, jint height,
+                                                             jint rotation) {
+    jbyte *input = env->GetByteArrayElements(input_, NULL);
+    jbyte *output = env->GetByteArrayElements(output_, NULL);
+
+    RotationMode rotationMode = kRotate0;
+    switch (rotation) {
+        case 90:
+            rotationMode = kRotate90;
+            break;
+        case 180:
+            rotationMode = kRotate180;
+            break;
+        case 270:
+            rotationMode = kRotate270;
+            break;
+    }
+    I420Rotate((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width / 2,
+               (uint8_t *)input + (width * height * 5 / 4), width / 2,
+               (uint8_t *)output, height,
+               (uint8_t *)output + (width * height), height / 2,
+               (uint8_t *)output + (width * height * 5 / 4), height / 2,
+               width, height,
+               rotationMode);
+
+    env->ReleaseByteArrayElements(input_, input, 0);
+    env->ReleaseByteArrayElements(output_, output, 0);
+}extern "C"
+JNIEXPORT void JNICALL
+Java_com_media_lingxiao_harddecoder_utils_YuvUtil_NV21ToI420RotateAndConvertToNv12(JNIEnv *env,
+                                                                                   jclass type,
+                                                                                   jbyteArray input_,
+                                                                                   jbyteArray output_,
+                                                                                   jint width,
+                                                                                   jint height,
+                                                                                   jint rotation) {
+    jbyte *input = env->GetByteArrayElements(input_, NULL);
+    jbyte *output = env->GetByteArrayElements(output_, NULL);
+
+    NV21ToI420((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width,
+               (uint8_t *)output, width,
+               (uint8_t *)output + (width * height), width / 2,
+               (uint8_t *)output + (width * height * 5 / 4), width / 2,
+               width, height);
+
+    I420Rotate((const uint8_t *)output, width,
+               (uint8_t *)output + (width * height), width / 2,
+               (uint8_t *)output + (width * height * 5 / 4), width / 2,
+               (uint8_t *)input, height,
+               (uint8_t *)input + (width * height), height / 2,
+               (uint8_t *)input + (width * height * 5 / 4), height / 2,
+               width, height,
+               kRotate90);
+    I420ToNV21((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width,
+               (uint8_t *)output, width,
+               (uint8_t *)output + (width * height), width / 2,
+               (uint8_t *)output + (width * height * 5 / 4), width / 2,
+               width, height);
+
+    /*I420ToNV12((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width,
+               (uint8_t *)output, width,
+               (uint8_t *)output + (width * height), width / 2,
+               (uint8_t *)output + (width * height * 5 / 4), width / 2,
+               width, height);*/
+
+    env->ReleaseByteArrayElements(input_, input, 0);
+    env->ReleaseByteArrayElements(output_, output, 0);
 }

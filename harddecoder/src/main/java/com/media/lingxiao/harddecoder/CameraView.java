@@ -221,11 +221,11 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                     if (mOrienta != 0) {
                         //说明有旋转角度 最好在native层做数据处理
                         if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
-                            //long before = System.currentTimeMillis();
+                            long before = System.currentTimeMillis();
                             //yuvData = rotateYUVDegree90(datas,mWidth,mHeight);  //耗时比较久 引起使用mediacodec录制卡顿
                             yuvData = YuvUtil.rotateYuv90(datas,frameWidth,frameHeight); //70ms-120ms之间，一般稳定在70ms
-                            //long after = System.currentTimeMillis();
-                            //Log.e(TAG, "旋转yuv耗时: "+(after-before)+"ms");
+                            long after = System.currentTimeMillis();
+                            Log.e(TAG, "旋转yuv耗时: "+(after-before)+"ms");
                         }else {
                             yuvData = YuvUtil.rotateYUVDegree270AndMirror(datas,frameWidth,frameHeight);
                         }

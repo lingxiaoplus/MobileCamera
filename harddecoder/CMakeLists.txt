@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.4.1)
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lstdc++ -DARM_NEON_ENABLE -mfloat-abi=softfp -mfpu=neon-vfpv4 -flax-vector-conversions")
+include_directories(src/main/cpp/libyuv/include)
+add_subdirectory(src/main/cpp/libyuv)
 add_library( # Sets the name of the library.
              yuv-lib
 
@@ -18,7 +20,7 @@ find_library( # Sets the name of the path variable.
               log )
 target_link_libraries( # Specifies the target library.
                        yuv-lib
-
+                       yuv
                        # Links the target library to the log library
                        # included in the NDK.
                        ${log-lib} )

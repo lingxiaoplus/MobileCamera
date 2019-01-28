@@ -16,7 +16,8 @@ android {
             cmake {
                 cppFlags ""
                 //cppFlags "-frtti -fexceptions"
-                arguments '-DANDROID_STL=c++_shared'
+                //具体参数可以看：https://www.jianshu.com/p/712942cbe3c1 第二个是开启了neon加速
+                arguments '-DANDROID_STL=c++_shared',"-DANDROID_ARM_NEON=TRUE"
             }
         }
         ndk{
