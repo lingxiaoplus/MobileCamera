@@ -83,13 +83,13 @@ public class H264EncoderConsumer {
         if (!isRuning && mediaCodec == null){
             return;
         }
-        byte[] yuv420sp = new byte[mEncoderParams.getFrameWidth() * mEncoderParams.getFrameHeight() * 3/2];
-        long before = System.currentTimeMillis();
+        //byte[] yuv420sp = new byte[mEncoderParams.getFrameWidth() * mEncoderParams.getFrameHeight() * 3/2];
+        //long before = System.currentTimeMillis();
         //NV21ToNV12(yuvData,yuv420sp,m_width,m_height);  //耗时110ms左右
-        YuvUtil.NV21ToNV12(yuvData,yuv420sp,mEncoderParams.getFrameWidth(),mEncoderParams.getFrameHeight()); //耗时35ms左右 解决卡顿问题
-        long after = System.currentTimeMillis();
-        Log.e(TAG, "nv21转nv12耗时: "+(after-before)+"ms");
-        feedMediaCodecData(yuv420sp);
+        //YuvUtil.NV21ToNV12(yuvData,yuv420sp,mEncoderParams.getFrameWidth(),mEncoderParams.getFrameHeight()); //耗时35ms左右 解决卡顿问题
+        //long after = System.currentTimeMillis();
+        //Log.e(TAG, "nv21转nv12耗时: "+(after-before)+"ms");
+        feedMediaCodecData(yuvData);
     }
 
     private void feedMediaCodecData(byte[] data) {

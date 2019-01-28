@@ -220,14 +220,22 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                     byte[] yuvData = datas;
                     if (mOrienta != 0) {
                         //说明有旋转角度 最好在native层做数据处理
+                        yuvData = new byte[datas.length];
                         if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
                             long before = System.currentTimeMillis();
                             //yuvData = rotateYUVDegree90(datas,mWidth,mHeight);  //耗时比较久 引起使用mediacodec录制卡顿
-                            yuvData = YuvUtil.rotateYuv90(datas,frameWidth,frameHeight); //70ms-120ms之间，一般稳定在70ms
+                            //yuvData = YuvUtil.rotateYuv90(datas,frameWidth,frameHeight); //70ms-120ms之间，一般稳定在70ms
+
+                            //使用libyuv优化 ，google就是牛皮 旋转+转换加起来耗时在20ms左右
+                            YuvUtil.NV21ToI420RotateAndConvertToNv12(datas,yuvData,frameWidth,frameHeight);
                             long after = System.currentTimeMillis();
                             Log.e(TAG, "旋转yuv耗时: "+(after-before)+"ms");
                         }else {
-                            yuvData = YuvUtil.rotateYUVDegree270AndMirror(datas,frameWidth,frameHeight);
+                            long before = System.currentTimeMillis();
+                            //yuvData = YuvUtil.rotateYUVDegree270AndMirror(datas,frameWidth,frameHeight);
+                            YuvUtil.NV21ToI420RotateAndMirrorConvertToNv12(datas,yuvData,frameWidth,frameHeight);
+                            long after = System.currentTimeMillis();
+                            Log.e(TAG, "旋转270并镜像yuv耗时: "+(after-before)+"ms");
                         }
                     }
                     synchronized (CameraView.class){
@@ -426,7 +434,6 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         H264EncoderConsumer.getInstance().stopEncodeH264();
         AudioEncoder.getInstance().stopEncodeAac();
         this.isRecoder = false;
-        mCameraDataCallback = null;
     }
 
     @SuppressLint("NewApi")

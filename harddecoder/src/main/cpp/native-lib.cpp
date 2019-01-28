@@ -27,45 +27,40 @@
 	#define LOGE(...)
 #endif
 
-void nv21_clip(const char* yuv, int yuvW, int yuvH, int clipRectLeft, int clipRectTop, int clipRectW, int clipRectH, char* yuv_out_buffer) {
-	int yLen = yuvW * yuvH;
-	#pragma omp parallel for
-	for(int i = 0; i < clipRectH; ++i) {
-		memcpy(yuv_out_buffer + i * clipRectW, yuv + clipRectLeft + (clipRectTop + i) * yuvW, clipRectW);
-	}
-	int dstYLen = clipRectW * clipRectH;
-	#pragma omp parallel for
-	for(int i = 0; i < clipRectH >> 1; ++i) {
-		memcpy(yuv_out_buffer + dstYLen + i * clipRectW, yuv + yLen + (clipRectTop / 2 + i) * yuvW + clipRectLeft, clipRectW);
-	}
+using namespace libyuv;
+void rotateI420(jbyte *input, jbyte *output, int width, int height,int rotation){
+    RotationMode rotationMode = kRotate0;
+    switch (rotation) {
+        case 90:
+            rotationMode = kRotate90;
+            break;
+        case 180:
+            rotationMode = kRotate180;
+            break;
+        case 270:
+            rotationMode = kRotate270;
+            break;
+    }
+    I420Rotate((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width / 2,
+               (uint8_t *)input + (width * height * 5 / 4), width / 2,
+               (uint8_t *)output, height,
+               (uint8_t *)output + (width * height), height / 2,
+               (uint8_t *)output + (width * height * 5 / 4), height / 2,
+               width, height,
+               rotationMode);
 }
 
+void mirrorI420(jbyte *input, jbyte *output,  jint width, jint height) {
 
-void cutYuv(unsigned char *tarYuv, unsigned char *srcYuv, int startW,
-            int startH, int cutW, int cutH, int srcW, int srcH)
-{
-  int i;
-  int j = 0;
-  int k = 0;
-  //分配一段内存，用于存储裁剪后的Y分量
-  unsigned char *tmpY = (unsigned char *)malloc(cutW*cutH);
-  //分配一段内存，用于存储裁剪后的UV分量
-	unsigned char *tmpUV = (unsigned char *)malloc(cutW*cutH/2);
-  for(i=startH; i<cutH+startH; i++) {
-             // 逐行拷贝Y分量，共拷贝cutW*cutH
-             memcpy(tmpY+j*cutW, srcYuv+startW+i*srcW, cutW);
-             j++;
-           }
-           for(i=startH/2; i<(cutH+startH)/2; i++) {
-             //逐行拷贝UV分量，共拷贝cutW*cutH/2
-             memcpy(tmpUV+k*cutW, srcYuv+startW+srcW*srcH+i*srcW, cutW);
-             k++;
-           }
-           //将拷贝好的Y，UV分量拷贝到目标内存中
-           memcpy(tarYuv, tmpY, cutW*cutH);
-           memcpy(tarYuv+cutW*cutH, tmpUV, cutW*cutH/2);
-           free(tmpY);
-           free(tmpUV);
+    I420Mirror((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width / 2,
+               (uint8_t *)input + (width * height * 5 / 4), width / 2,
+               (uint8_t *)output, height,
+               (uint8_t *)output + (width * height), height / 2,
+               (uint8_t *)output + (width * height * 5 / 4), height / 2,
+               width, height);
+
 }
 
 extern "C"
@@ -137,30 +132,6 @@ Java_com_media_lingxiao_harddecoder_utils_YuvUtil_rotateYUVDegree270AndMirror(JN
     return yuvArray;
 }
 
-void detailPic90(uint8_t* yuv_origin, uint8_t* yuv_temp, int nw, int nh, int w, int h) {
-    int deleteW = (nw - h) / 2;
-    int deleteH = (nh - w) / 2;
-    int i, j;
-    for (i = 0; i < h; i++){
-        for (j = 0; j < w; j++){
-            yuv_temp[(h- i) * w - 1 - j] = yuv_origin[nw * (deleteH + j) + nw - deleteW
-            -i];
-        }
-    }
-    int index = w * h;
-    for (i = deleteW + 1; i< nw - deleteW; i += 2){
-        for (j = nh / 2 * 3 -deleteH / 2; j > nh + deleteH / 2; j--){
-            yuv_temp[index++] = yuv_origin[(j - 1) * nw + i];
-        }
-    }
-    for (i = deleteW; i < nw- deleteW; i += 2){
-        for (j = nh / 2 * 3 -deleteH / 2; j > nh + deleteH / 2; j--){
-            yuv_temp[index++] = yuv_origin[(j - 1) * nw + i];
-        }
-    }
-}
-
-
 extern "C"
 JNIEXPORT jbyteArray JNICALL
 Java_com_media_lingxiao_harddecoder_utils_YuvUtil_setBitmapBits(JNIEnv *env,
@@ -210,7 +181,7 @@ Java_com_media_lingxiao_harddecoder_utils_YuvUtil_NV21ToNV12(JNIEnv *env, jclass
     env->ReleaseByteArrayElements(nv21_, nv21, 0);
     env->ReleaseByteArrayElements(nv12_, nv12, 0);
 }
-using namespace libyuv;
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_media_lingxiao_harddecoder_utils_YuvUtil_NV21ToI420(JNIEnv *env, jclass type,
@@ -261,15 +232,16 @@ Java_com_media_lingxiao_harddecoder_utils_YuvUtil_RotateI420(JNIEnv *env, jclass
 
     env->ReleaseByteArrayElements(input_, input, 0);
     env->ReleaseByteArrayElements(output_, output, 0);
-}extern "C"
+}
+
+extern "C"
 JNIEXPORT void JNICALL
 Java_com_media_lingxiao_harddecoder_utils_YuvUtil_NV21ToI420RotateAndConvertToNv12(JNIEnv *env,
                                                                                    jclass type,
                                                                                    jbyteArray input_,
                                                                                    jbyteArray output_,
                                                                                    jint width,
-                                                                                   jint height,
-                                                                                   jint rotation) {
+                                                                                   jint height) {
     jbyte *input = env->GetByteArrayElements(input_, NULL);
     jbyte *output = env->GetByteArrayElements(output_, NULL);
 
@@ -280,28 +252,64 @@ Java_com_media_lingxiao_harddecoder_utils_YuvUtil_NV21ToI420RotateAndConvertToNv
                (uint8_t *)output + (width * height * 5 / 4), width / 2,
                width, height);
 
-    I420Rotate((const uint8_t *)output, width,
+
+    /*I420Rotate((const uint8_t *)output, width,
                (uint8_t *)output + (width * height), width / 2,
                (uint8_t *)output + (width * height * 5 / 4), width / 2,
                (uint8_t *)input, height,
                (uint8_t *)input + (width * height), height / 2,
                (uint8_t *)input + (width * height * 5 / 4), height / 2,
                width, height,
-               kRotate90);
-    I420ToNV21((const uint8_t *)input, width,
+               kRotate90);*/
+    rotateI420(output,input,width,height,90);
+    /*I420ToNV21((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width / 2,
+               (uint8_t *)input + (width * height * 5 / 4), width / 2,
+               (uint8_t *)output, width ,
+               (uint8_t *)output + (width * height), width,
+               width, height);*/
+
+    I420ToNV12((const uint8_t *)input, width,
+               (uint8_t *)input + (width * height), width / 2,
+               (uint8_t *)input + (width * height * 5 / 4), width / 2,
+               (uint8_t *)output, width ,
+               (uint8_t *)output + (width * height), width,
+               width, height);
+
+    env->ReleaseByteArrayElements(input_, input, 0);
+    env->ReleaseByteArrayElements(output_, output, 0);
+}
+
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_media_lingxiao_harddecoder_utils_YuvUtil_NV21ToI420RotateAndMirrorConvertToNv12(JNIEnv *env,
+                                                                                   jclass type,
+                                                                                   jbyteArray input_,
+                                                                                   jbyteArray output_,
+                                                                                   jint width,
+                                                                                   jint height) {
+    jbyte *input = env->GetByteArrayElements(input_, NULL);
+    jbyte *output = env->GetByteArrayElements(output_, NULL);
+
+    NV21ToI420((const uint8_t *)input, width,
                (uint8_t *)input + (width * height), width,
                (uint8_t *)output, width,
                (uint8_t *)output + (width * height), width / 2,
                (uint8_t *)output + (width * height * 5 / 4), width / 2,
                width, height);
-
-    /*I420ToNV12((const uint8_t *)input, width,
-               (uint8_t *)input + (width * height), width,
-               (uint8_t *)output, width,
+    rotateI420(output,input,width,height,270);
+    mirrorI420(input,output,width,height);
+    I420ToNV12((const uint8_t *)output, width,
                (uint8_t *)output + (width * height), width / 2,
                (uint8_t *)output + (width * height * 5 / 4), width / 2,
-               width, height);*/
+               (uint8_t *)input, width ,
+               (uint8_t *)input + (width * height), width,
+               width, height);
 
+    jsize yuv_len = env->GetArrayLength(input_);
+    memcpy(output,input,yuv_len);
     env->ReleaseByteArrayElements(input_, input, 0);
     env->ReleaseByteArrayElements(output_, output, 0);
 }
+
