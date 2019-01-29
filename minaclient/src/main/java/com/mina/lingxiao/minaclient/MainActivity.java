@@ -1,6 +1,7 @@
 package com.mina.lingxiao.minaclient;
 
 import androidx.appcompat.app.AppCompatActivity;
+import pub.devrel.easypermissions.EasyPermissions;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -26,12 +27,7 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = getIntent();
         mIp = intent.getStringExtra("ip");
         mPort = intent.getStringExtra("port");
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                mClient = new Client(mIp,Integer.valueOf(mPort));
-            }
-        }).start();
+
 
 
     }
@@ -45,21 +41,19 @@ public class MainActivity extends AppCompatActivity {
     private class SurfaceCallBack implements SurfaceHolder.Callback {
 
         @Override
-        public void surfaceCreated(SurfaceHolder surfaceHolder) {
-
+        public void surfaceCreated(final SurfaceHolder surfaceHolder) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    mClient = new Client(mIp,Integer.valueOf(mPort));
+                    mClient.play(surfaceHolder,1080,1920);
+                }
+            }).start();
         }
 
         @Override
-        public void surfaceChanged(final SurfaceHolder surfaceHolder, int formate, final int width, final int height) {
-            if (mClient != null){
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        mClient.play(surfaceHolder,1080,1920);
-                    }
-                }).start();
+        public void surfaceChanged(SurfaceHolder surfaceHolder, int formate, final int width, final int height) {
 
-            }
         }
 
         @Override

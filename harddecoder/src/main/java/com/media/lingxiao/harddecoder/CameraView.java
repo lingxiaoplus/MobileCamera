@@ -33,9 +33,12 @@ import com.media.lingxiao.harddecoder.utils.YuvUtil;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
-public class CameraView extends TextureView implements TextureView.SurfaceTextureListener{
+public class CameraView extends TextureView implements TextureView.SurfaceTextureListener,
+        H264EncoderConsumer.H264FrameListener,
+        AudioEncoder.AudioEncodeListener{
     private int frameWidth;
     private int frameHeight;
     private int mCameraId;   //摄像头id
@@ -142,6 +145,31 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         }
     }
 
+    @Override
+    public void onGetH264(byte[] data, int width, int height) {
+        if (null != mCameraDataCallback){
+            mCameraDataCallback.onH264DataFrame(data,width,height);
+        }
+    }
+
+    @Override
+    public void onGetAac(byte[] data, int length) {
+        if (null != mCameraDataCallback){
+            mCameraDataCallback.onAacDataFrame(data,length);
+        }
+    }
+
+
+    @Override
+    public void onStopEncodeH264Success() {
+
+    }
+
+    @Override
+    public void onStopEncodeAacSuccess() {
+
+    }
+
 
     private class CameraHandlerThread extends HandlerThread{
         private Handler mHandler;
@@ -217,25 +245,19 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
             public void onPreviewFrame(byte[] datas, Camera camera) {
                 //if (!lock.tryLock()) return;
                 if (null != mCameraDataCallback) {
-                    byte[] yuvData = datas;
+                    byte[] yuvData = Arrays.copyOf(datas,datas.length);
                     if (mOrienta != 0) {
                         //说明有旋转角度 最好在native层做数据处理
                         yuvData = new byte[datas.length];
                         if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
-                            long before = System.currentTimeMillis();
                             //yuvData = rotateYUVDegree90(datas,mWidth,mHeight);  //耗时比较久 引起使用mediacodec录制卡顿
                             //yuvData = YuvUtil.rotateYuv90(datas,frameWidth,frameHeight); //70ms-120ms之间，一般稳定在70ms
-
                             //使用libyuv优化 ，google就是牛皮 旋转+转换加起来耗时在20ms左右
-                            YuvUtil.NV21ToI420RotateAndConvertToNv12(datas,yuvData,frameWidth,frameHeight);
-                            long after = System.currentTimeMillis();
-                            Log.e(TAG, "旋转yuv耗时: "+(after-before)+"ms");
+                            YuvUtil.NV21RotateAndConvertToNv12(datas,yuvData,frameWidth,frameHeight,mOrienta);
+
                         }else {
-                            long before = System.currentTimeMillis();
                             //yuvData = YuvUtil.rotateYUVDegree270AndMirror(datas,frameWidth,frameHeight);
-                            YuvUtil.NV21ToI420RotateAndMirrorConvertToNv12(datas,yuvData,frameWidth,frameHeight);
-                            long after = System.currentTimeMillis();
-                            Log.e(TAG, "旋转270并镜像yuv耗时: "+(after-before)+"ms");
+                            YuvUtil.NV21RotateAndMirrorConvertToNv12(datas,yuvData,frameWidth,frameHeight,mOrienta);
                         }
                     }
                     synchronized (CameraView.class){
@@ -250,6 +272,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                 //回收缓存处理 必须放这里 不然会出现垂直同步问题
                 camera.addCallbackBuffer(datas);
                 //lock.unlock();
+
             }
         });
         //2.增加缓冲区buffer: 这里指定的是yuv420sp格式
@@ -381,7 +404,6 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         //切换前后摄像头
         int cameraCount = 0;
         Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-
         cameraCount = Camera.getNumberOfCameras();//得到摄像头的个数
 
         for (int i = 0; i < cameraCount; i++) {
@@ -427,6 +449,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
             AudioEncoder.getInstance()
                     .setEncoderParams(params)
                     .startEncodeAacData(false);
+            H264EncoderConsumer.getInstance().setEncodeH264Listner(this);
             this.isRecoder = true;
         }
     }
@@ -626,7 +649,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
 
     private PictureTakenCallBack mPicListener;
 
-    public void setPicTakenListener(PictureTakenCallBack picListener) {
+    public void setPicTakenCallBack(PictureTakenCallBack picListener) {
         this.mPicListener = picListener;
     }
 
@@ -642,7 +665,8 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
 
     public interface CameraDataCallback {
         void onYuvDataFrame(byte[] yuv, Camera camera);
-        void onH264DataFrame(byte[] h264, Camera camera);
+        void onH264DataFrame(byte[] h264, int width,int height);
+        void onAacDataFrame(byte[] aac, int length);
     }
 
     public void stopPreview() {

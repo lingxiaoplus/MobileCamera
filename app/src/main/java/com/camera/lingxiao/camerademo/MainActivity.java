@@ -41,7 +41,7 @@ import butterknife.OnClick;
 import de.hdodenhof.circleimageview.CircleImageView;
 
 
-public class MainActivity extends BaseActivity implements H264Encoder.PreviewFrameListener {
+public class MainActivity extends BaseActivity {
     @BindView(R.id.surfaceView)
     CameraView mCameraView;
     @BindView(R.id.bt_recode)
@@ -72,7 +72,8 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
     private long timestamp;
     private static final float NS2S = 1.0f / 1000000000.0f;
     private static final String TAG = MainActivity.class.getSimpleName();
-
+    private long mSeq_no0;
+    private long mSeq_no1;
     @Override
     protected int getContentLayoutId() {
         return R.layout.activity_main;
@@ -89,7 +90,7 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
             }
         }).start();
 
-        mCameraView.setPicTakenListener(new CameraView.PictureTakenCallBack() {
+        mCameraView.setPicTakenCallBack(new CameraView.PictureTakenCallBack() {
             @Override
             public void onPictureTaken(String result, File file) {
                 if (result.isEmpty()) {
@@ -109,7 +110,26 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
             }
 
             @Override
-            public void onH264DataFrame(byte[] h264, Camera camera) {
+            public void onH264DataFrame(byte[] h264, int width, int height) {
+                //硬编码之后的h264数据
+                //发送数据
+                if (null != mServer) {
+                    byte[] h264Data = Arrays.copyOf(h264, h264.length);
+                    VideoStreamModel model = new VideoStreamModel();
+                    mSeq_no0++;
+                    mSeq_no1++;
+                    model.setType(2);
+                    model.setWidth(width);
+                    model.setHeight(height);
+                    model.setSeq_no0(mSeq_no0);
+                    model.setSeq_no1(mSeq_no1);
+                    model.setVideo(h264Data);
+                    mServer.broadcastPreviewFrameData(model);
+                }
+            }
+
+            @Override
+            public void onAacDataFrame(byte[] aac, int length) {
 
             }
         });
@@ -148,7 +168,6 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
 
         if (!mH264Encoder.isEncodering()) {
             mH264Encoder.StartEncoderThread();
-            mH264Encoder.setPreviewListner(MainActivity.this);
             mBtnEncoder.setText("停止编码");
         } else {
             mH264Encoder.stopThread();
@@ -210,28 +229,6 @@ public class MainActivity extends BaseActivity implements H264Encoder.PreviewFra
         Date date = new Date(System.currentTimeMillis());
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return format.format(date);
-    }
-
-    private long mSeq_no0;
-    private long mSeq_no1;
-    //h264回调
-    @Override
-    public void onPreview(byte[] data, int width, int height) {
-        //硬编码之后的h264数据
-        //发送数据
-        if (null != mServer) {
-            byte[] h264Data = Arrays.copyOf(data, data.length);
-            VideoStreamModel model = new VideoStreamModel();
-            mSeq_no0++;
-            mSeq_no1++;
-            model.setType(2);
-            model.setWidth(width);
-            model.setHeight(height);
-            model.setSeq_no0(mSeq_no0);
-            model.setSeq_no1(mSeq_no1);
-            model.setVideo(h264Data);
-            mServer.broadcastPreviewFrameData(model);
-        }
     }
 
     @Override

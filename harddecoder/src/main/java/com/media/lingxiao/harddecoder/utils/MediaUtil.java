@@ -145,7 +145,6 @@ public class MediaUtil {
                 videoExtractor.unselectTrack(frameExtractorTrackIndex);
                 break;
             }
-
             videoBufferInfo.size = readSampleSize;
             videoBufferInfo.offset = 0;
             videoBufferInfo.flags = videoExtractor.getSampleFlags();
@@ -159,8 +158,6 @@ public class MediaUtil {
         mediaMuxer.release();
         return 0;
     }
-
-
 
     public void recordeH264toMp4(MediaFormat format,File outPut) throws IOException {
         MediaMuxer mediaMuxer = new MediaMuxer(outPut.getAbsolutePath(),

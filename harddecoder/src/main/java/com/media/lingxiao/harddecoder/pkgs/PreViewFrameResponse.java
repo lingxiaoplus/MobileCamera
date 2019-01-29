@@ -28,7 +28,7 @@ public class PreViewFrameResponse {
         }
         byte[] data = streamModel.getVideo();
 
-        IoBuffer buffer = IoBuffer.allocate(8 + 24 +data.length);
+        IoBuffer buffer = IoBuffer.allocate(8 + 24 + data.length);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
         buffer.putInt(Constants.createType(Constants.MESSAGE_ID_STRAME));
         buffer.putInt(24 + data.length);
@@ -43,7 +43,7 @@ public class PreViewFrameResponse {
         buffer.put(data);
         buffer.flip();
         session.write(buffer);
-        Log.i(TAG,"buffer的limit："+buffer.limit()+"  len: "+(24 + data.length)
+        Log.i(TAG,"buffer的limit："+buffer.limit()+"  len: " + (24 + data.length)
         +"messageID: "+Constants.createType(Constants.MESSAGE_ID_STRAME));
         return null;
     }

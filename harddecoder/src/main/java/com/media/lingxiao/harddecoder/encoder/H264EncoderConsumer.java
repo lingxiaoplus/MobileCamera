@@ -120,6 +120,7 @@ public class H264EncoderConsumer {
                 long pts =  0;
                 long generateIndex = 0;
                 byte[] input = null;
+                boolean isAddKeyFrame = false;
                 while (isRuning) {
                         try {
                             //编码器输出缓冲区
@@ -165,12 +166,26 @@ public class H264EncoderConsumer {
                                         outputBuffer.position(mBufferInfo.offset);
                                         outputBuffer.limit(mBufferInfo.offset + mBufferInfo.size);
                                     }
-                                    mediaUtil.putStrem(outputBuffer, mBufferInfo, true);
+                                    // 判断输出数据是否为关键帧 必须在关键帧添加之后，再添加普通帧，不然会出现马赛克
+                                    boolean keyFrame = (mBufferInfo.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0;
+                                    if (keyFrame){
+                                        // 录像时，第1秒画面会静止，这是由于音视轨没有完全被添加
+                                        Log.i(TAG,"编码混合,视频关键帧数据(I帧)");
+                                        mediaUtil.putStrem(outputBuffer, mBufferInfo, true);
+                                        isAddKeyFrame = true;
+                                    }else {
+                                        // 添加视频流到混合器
+                                        if(isAddKeyFrame){
+                                            Log.i(TAG,"编码混合,视频普通帧数据(B帧,P帧)" + mBufferInfo.size);
+                                            mediaUtil.putStrem(outputBuffer, mBufferInfo, true);
+                                        }
+                                    }
+
                                     byte[] outData = new byte[mBufferInfo.size];
                                     outputBuffer.get(outData);
                                     outputStream.write(outData,0,outData.length);
                                     if (h264Listener != null){
-                                        h264Listener.onPreview(outData,
+                                        h264Listener.onGetH264(outData,
                                                 mEncoderParams.getFrameWidth(),mEncoderParams.getFrameHeight());
                                     }
                                     // 处理结束，释放输出缓存区资源
@@ -204,6 +219,9 @@ public class H264EncoderConsumer {
             e.printStackTrace();
         }
         mediaUtil.release();
+        if (h264Listener != null){
+            h264Listener.onStopEncodeH264Success();
+        }
     }
 
     /**
@@ -231,11 +249,13 @@ public class H264EncoderConsumer {
         return isRuning;
     }
 
-    private PreviewFrameListener h264Listener;
-    public void setPreviewListner(PreviewFrameListener listener){
+    private H264FrameListener h264Listener;
+    public void setEncodeH264Listner(H264FrameListener listener){
         this.h264Listener = listener;
     }
-    public interface PreviewFrameListener {
-        void onPreview(byte[] data,int width ,int height);
+    public interface H264FrameListener {
+        void onGetH264(byte[] data,int width ,int height);
+        void onStopEncodeH264Success();
     }
+
 }

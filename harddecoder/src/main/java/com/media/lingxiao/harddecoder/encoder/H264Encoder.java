@@ -20,6 +20,10 @@ import java.util.concurrent.ArrayBlockingQueue;
 import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
 import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
 
+/**
+ * use {@link H264EncoderConsumer}
+ */
+@Deprecated
 public class H264Encoder {
     private int m_width, m_height, m_framerate;
     private MediaCodec mediaCodec;

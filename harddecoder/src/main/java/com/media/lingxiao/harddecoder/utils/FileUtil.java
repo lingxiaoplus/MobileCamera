@@ -23,9 +23,9 @@ import java.util.List;
 
 public class FileUtil {
     private static final String TAG = FileUtil.class.getSimpleName();
-    public static File saveFile(String filename, String filepath, byte[] data) throws Exception {
+    public static File saveFile(String filepath, byte[] data) throws Exception {
         if (data != null) {
-            File file = new File(filepath + filename);
+            File file = new File(filepath);
             if (file.exists()) {
                 file.delete();
             }

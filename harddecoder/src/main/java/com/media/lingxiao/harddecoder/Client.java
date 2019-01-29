@@ -1,5 +1,6 @@
 package com.media.lingxiao.harddecoder;
 
+import android.os.Environment;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
@@ -15,6 +16,11 @@ import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.apache.mina.transport.socket.nio.NioSocketConnector;
 
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteOrder;
 
@@ -53,6 +59,7 @@ public class Client{
         Log.i(TAG,"视频端口连接:" + streamSession);
         streamConnected = streamSession != null;
         playing = true;
+        createFilePath();
     }
 
     public void stopPlay(){
@@ -68,12 +75,33 @@ public class Client{
         } catch(Exception ex) {
             ex.printStackTrace();
         }
+        try {
+            outputStream.flush();
+            outputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
+    private BufferedOutputStream outputStream;
+    private void createFilePath(){
+        String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/h264_from_mina.h264";
+        File file = new File(path);
+        if(file.exists()){
+            file.delete();
+        }
+        try {
+            outputStream = new BufferedOutputStream(new FileOutputStream(file));
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
 
     private class StreamClientHandler extends IoHandlerAdapter{
         @Override
         public void messageReceived(IoSession session, Object message) throws Exception {
-            super.messageReceived(session, message);
+            //super.messageReceived(session, message);
             IoBuffer buffer = (IoBuffer) message;
             buffer.order(ByteOrder.LITTLE_ENDIAN);
             int type = buffer.getInt();
@@ -102,7 +130,7 @@ public class Client{
                             " height: "+height+
                             "  seq_no0: "+seq_no0+
                             " seq_no1: "+seq_no1);
-                    int bufferSize = buffer.getInt();
+                    int bufferSize = buffer.getInt(); //视频帧大小
                     if(buffer.remaining() < bufferSize) {
                         return;
                     }
@@ -115,7 +143,8 @@ public class Client{
                     if (mDecoder == null){
                         return;
                     }
-                    Log.i(TAG,"回调："+h264Segment.length);
+                    Log.i(TAG,"回调：" + h264Segment.length);
+                    outputStream.write(h264Segment);
                     mDecoder.handleH264(h264Segment);
                     break;
             }

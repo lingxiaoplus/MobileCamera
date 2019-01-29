@@ -33,14 +33,14 @@ public class AudioEncoder {
     private int mAudioRecordBufferSize;
     private static AudioEncoder mAudioEncoder;
 
-    private AudioEncoder(){
+    private AudioEncoder() {
 
     }
 
-    public static AudioEncoder getInstance(){
-        if (mAudioEncoder == null){
-            synchronized (AudioEncoder.class){
-                if (mAudioEncoder == null){
+    public static AudioEncoder getInstance() {
+        if (mAudioEncoder == null) {
+            synchronized (AudioEncoder.class) {
+                if (mAudioEncoder == null) {
                     mAudioEncoder = new AudioEncoder();
                 }
             }
@@ -48,7 +48,7 @@ public class AudioEncoder {
         return mAudioEncoder;
     }
 
-    public AudioEncoder setEncoderParams(EncoderParams params){
+    public AudioEncoder setEncoderParams(EncoderParams params) {
         try {
             mediaUtil = MediaUtil.getDefault();
             mMediaCodec = MediaCodec.createEncoderByType(mime);
@@ -68,7 +68,7 @@ public class AudioEncoder {
             startAudioRecord(params);
             mBufferInfo = new MediaCodec.BufferInfo();
 
-            if (null != params.getAudioPath()){
+            if (null != params.getAudioPath()) {
                 File fileAAc = new File(params.getAudioPath());
                 if (!fileAAc.exists()) {
                     fileAAc.createNewFile();
@@ -83,9 +83,7 @@ public class AudioEncoder {
     }
 
 
-
     /**
-     *
      * @param addADTS 是否添加adts信息  编码为aac需要 混合mp4时不需要添加
      */
     public void startEncodeAacData(final boolean addADTS) {
@@ -99,7 +97,7 @@ public class AudioEncoder {
                         int readBytes = mAudioRecord.read(audioBuf, 0, mAudioRecordBufferSize);
                         if (readBytes > 0) {
                             try {
-                                if (addADTS){
+                                if (addADTS) {
                                     encodeAudioBytesWithADTS(audioBuf, readBytes);
                                 }
                                 encodeAudioBytes(audioBuf, readBytes);
@@ -154,6 +152,7 @@ public class AudioEncoder {
         }
 
         int outputIndex;
+        byte[] frameBytes = null;
         do {
             outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);
             if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
@@ -194,6 +193,17 @@ public class AudioEncoder {
                     }
                     mediaUtil.putStrem(outPutBuf, mBufferInfo, false);
                     Log.i(TAG, "------编码混合音频数据-----" + mBufferInfo.size);
+
+                    //给adts头字段空出7的字节
+                    int length = mBufferInfo.size + 7;
+                    if (frameBytes == null || frameBytes.length < length) {
+                        frameBytes = new byte[length];
+                    }
+                    addADTStoPacket(frameBytes, length);
+                    outPutBuf.get(frameBytes, 7, mBufferInfo.size);
+                    if (audioListener != null) {
+                        audioListener.onGetAac(frameBytes, length);
+                    }
                 }
                 //释放
                 mMediaCodec.releaseOutputBuffer(outputIndex, false);
@@ -204,6 +214,7 @@ public class AudioEncoder {
 
     /**
      * 编码时加上adts头信息
+     *
      * @param audioBuf
      * @param readBytes
      */
@@ -226,15 +237,17 @@ public class AudioEncoder {
             outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);
             ByteBuffer outPutBuf = outputBufferArray[outputIndex];
             //给adts头字段空出7的字节
-            int length = mBufferInfo.size+7;
-            if(frameBytes == null || frameBytes.length < length){
+            int length = mBufferInfo.size + 7;
+            if (frameBytes == null || frameBytes.length < length) {
                 frameBytes = new byte[length];
             }
-            addADTStoPacket(frameBytes,length);
-            outPutBuf.get(frameBytes,7,mBufferInfo.size);
-
+            addADTStoPacket(frameBytes, length);
+            outPutBuf.get(frameBytes, 7, mBufferInfo.size);
+            if (audioListener != null) {
+                audioListener.onGetAac(frameBytes, length);
+            }
             try {
-                fileOutputStream.write(frameBytes,0,length);
+                fileOutputStream.write(frameBytes, 0, length);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -243,6 +256,7 @@ public class AudioEncoder {
     }
 
     private long prevPresentationTimes = 0;
+
     private long getPTSUs() {
         long result = System.nanoTime() / 1000;
         if (result < prevPresentationTimes) {
@@ -253,25 +267,25 @@ public class AudioEncoder {
 
     /**
      * 给编码出的aac裸流添加adts头字段
-     * @param packet 要空出前7个字节，否则会搞乱数据
+     *
+     * @param packet    要空出前7个字节，否则会搞乱数据
      * @param packetLen
      */
     private void addADTStoPacket(byte[] packet, int packetLen) {
         int profile = 2;  //AAC LC
         int freqIdx = 4;  //44.1KHz
         int chanCfg = 2;  //CPE
-        packet[0] = (byte)0xFF;
-        packet[1] = (byte)0xF9;
-        packet[2] = (byte)(((profile-1)<<6) + (freqIdx<<2) +(chanCfg>>2));
-        packet[3] = (byte)(((chanCfg&3)<<6) + (packetLen>>11));
-        packet[4] = (byte)((packetLen&0x7FF) >> 3);
-        packet[5] = (byte)(((packetLen&7)<<5) + 0x1F);
-        packet[6] = (byte)0xFC;
+        packet[0] = (byte) 0xFF;
+        packet[1] = (byte) 0xF9;
+        packet[2] = (byte) (((profile - 1) << 6) + (freqIdx << 2) + (chanCfg >> 2));
+        packet[3] = (byte) (((chanCfg & 3) << 6) + (packetLen >> 11));
+        packet[4] = (byte) ((packetLen & 0x7FF) >> 3);
+        packet[5] = (byte) (((packetLen & 7) << 5) + 0x1F);
+        packet[6] = (byte) 0xFC;
     }
 
     public void stopEncodeAac() {
         isEncoding = false;
-
     }
 
     private void stopEncodeAacSync() {
@@ -285,7 +299,7 @@ public class AudioEncoder {
             mMediaCodec.release();
             mMediaCodec = null;
             try {
-                if (fileOutputStream != null){
+                if (fileOutputStream != null) {
                     fileOutputStream.flush();
                     fileOutputStream.close();
                 }
@@ -294,5 +308,20 @@ public class AudioEncoder {
             }
         }
         mediaUtil.release();
+        if (audioListener != null) {
+            audioListener.onStopEncodeAacSuccess();
+        }
+    }
+
+    private AudioEncodeListener audioListener;
+
+    public void setEncodeAacListner(AudioEncodeListener listener) {
+        this.audioListener = listener;
+    }
+
+    public interface AudioEncodeListener {
+        void onGetAac(byte[] data, int length);
+
+        void onStopEncodeAacSuccess();
     }
 }
