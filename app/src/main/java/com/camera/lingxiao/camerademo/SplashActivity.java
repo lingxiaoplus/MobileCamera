@@ -1,17 +1,31 @@
 package com.camera.lingxiao.camerademo;
 
 import android.Manifest;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
 import com.camera.lingxiao.camerademo.crash.ContentValue;
+import com.camera.lingxiao.camerademo.utils.FileUtil;
+import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.decoder.AudioDecoder;
+import com.media.lingxiao.harddecoder.utils.AudioUtil;
 
 import java.io.File;
+import java.util.List;
 
+import androidx.appcompat.app.AlertDialog;
 import butterknife.BindView;
 import butterknife.OnClick;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.schedulers.Schedulers;
 import pub.devrel.easypermissions.EasyPermissions;
 
 public class SplashActivity extends BaseActivity{
@@ -59,6 +73,58 @@ public class SplashActivity extends BaseActivity{
         }
     }
 
+    @OnClick(R.id.button_player)
+    public void onGetPlayList(View v){
+        showProgressDialog();
+        Observable.create(new ObservableOnSubscribe<String[]>() {
+            @Override
+            public void subscribe(ObservableEmitter<String[]> emitter) {
+                List<String> pcmList = FileUtil.getFileList(ContentValue.MAIN_PATH);
+                String[] files = pcmList.toArray(new String[pcmList.size()]);
+                emitter.onNext(files);
+                emitter.onComplete();
+            }
+        }).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<String[]>() {
+                    private Disposable mDisposable;
+
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        mDisposable = d;
+                    }
+
+                    @Override
+                    public void onNext(String[] files) {
+                        cancelProgressDialog();
+                        showDialog(files);
+                        mDisposable.dispose();
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        e.printStackTrace();
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+    }
+
+    private void showDialog(final String[] files) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("请选择播放文件");
+        builder.setItems(files, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                AudioDecoder.getInstance()
+                        .startDecodeFromMPEG_4(files[i]);
+            }
+        });
+        builder.show();
+    }
     private void methodRequiresTwoPermission() {
         if (!EasyPermissions.hasPermissions(this, perms)) {
             EasyPermissions.requestPermissions(this, "需要同意权限",

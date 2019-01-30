@@ -1,5 +1,8 @@
 package com.media.lingxiao.harddecoder.decoder;
 
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
@@ -170,7 +173,7 @@ public class AudioDecoder {
     }
 
 
-    public void startDecodeFromMPEG_4(final String MPEG_4_Path) throws IOException{
+    public void startDecodeFromMPEG_4(final String MPEG_4_Path){
         if (!new File(MPEG_4_Path).exists()){
             try {
                 throw new FileNotFoundException("MPEG_4 file not find");
@@ -179,89 +182,98 @@ public class AudioDecoder {
             }
         }
         isDecoding = true;
-        Observable.create(new ObservableOnSubscribe<AudioData>() {
-            @Override
-            public void subscribe(ObservableEmitter<AudioData> emitter) throws Exception {
-                MediaExtractor audioExtractor = new MediaExtractor(); //MediaExtractor作用是将音频和视频的数据进行分离
-                audioExtractor.setDataSource(MPEG_4_Path);
-                int audioExtractorTrackIndex = -1; //提供音频的音频轨
-                int audioMaxInputSize = 0; //能获取的音频的最大值
-                //多媒体流中video轨和audio轨的总个数
-                for (int i = 0; i < audioExtractor.getTrackCount(); i++) {
-                    MediaFormat format = audioExtractor.getTrackFormat(i);
-                    String mime = format.getString(MediaFormat.KEY_MIME);//主要描述mime类型的媒体格式
-                    if (mime.startsWith("audio/")) { //找到音轨
-                        //extractor.selectTrack(i);
-                        audioExtractorTrackIndex = i;
-                        audioMaxInputSize = format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);//得到能获取的有关音频的最大值
-                    }
-                }
-                audioExtractor.selectTrack(audioExtractorTrackIndex); //选择想要处理的track
-                MediaCodec.BufferInfo audioBufferInfo = new MediaCodec.BufferInfo();
-                ByteBuffer audioByteBuffer = ByteBuffer.allocate(audioMaxInputSize);
-                AudioData audioData = new AudioData();
-                while (isDecoding){
-                    //检索当前编码的样本并将其存储在字节缓冲区中
-                    int readSampleSize = audioExtractor.readSampleData(audioByteBuffer,0);
-                    if (readSampleSize < 0){
-                        //如果没有可获取的样本则退出循环
-                        audioExtractor.unselectTrack(audioExtractorTrackIndex);
-                        break;
-                    }
-                    long sampleTime = audioExtractor.getSampleTime();
-                    audioBufferInfo.size = readSampleSize;
-                    audioBufferInfo.offset = 0;
-                    audioBufferInfo.flags = audioExtractor.getSampleFlags();
-                    audioBufferInfo.presentationTimeUs = sampleTime;
-
-                    audioData.setTrackIndex(audioExtractorTrackIndex);
-                    audioData.setAudioByteBuffer(audioByteBuffer);
-                    audioData.setAudioBufferInfo(audioBufferInfo);
-                    emitter.onNext(audioData);
-                    audioExtractor.advance();
-                }
-                emitter.onComplete();
-            }
-        }).subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Observer<AudioData>() {
-                    private Disposable mDisposable;
-            @Override
-            public void onSubscribe(Disposable d) {
-
-            }
-
-            @Override
-            public void onNext(AudioData audioData) {
-                mBufferInfo = audioData.getAudioBufferInfo();
-                ByteBuffer byteBuffer = audioData.getAudioByteBuffer();
-
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                Log.e(TAG, "onError: " + e.getMessage());
-                if (mDisposable != null && !mDisposable.isDisposed()){
-                    mDisposable.dispose();
-                }
-            }
-
-            @Override
-            public void onComplete() {
-                if (mDisposable != null && !mDisposable.isDisposed()){
-                    mDisposable.dispose();
-                }
-            }
-        });
         Thread audioDecodeTrhread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    mInputStream = new DataInputStream(new FileInputStream(new File(MPEG_4_Path)));
-                    int size = 1024;
-                    byte[] buf = new byte[size];
-                    while (mInputStream.read(buf, 0, size) != -1 && isDecoding){
-                        decodeBytes(buf,size);
+                    MediaExtractor audioExtractor = new MediaExtractor(); //MediaExtractor作用是将音频和视频的数据进行分离
+                    audioExtractor.setDataSource(MPEG_4_Path);
+                    AudioTrack audioTrack = null;
+                    int audioExtractorTrackIndex = -1; //提供音频的音频轨
+                    int audioMaxInputSize = 0; //能获取的音频的最大值
+                    //多媒体流中video轨和audio轨的总个数
+                    for (int i = 0; i < audioExtractor.getTrackCount(); i++) {
+                        MediaFormat format = audioExtractor.getTrackFormat(i);
+                        String mime = format.getString(MediaFormat.KEY_MIME);//主要描述mime类型的媒体格式
+                        if (mime.startsWith("audio/")) { //找到音轨
+                            audioExtractor.selectTrack(i);
+                            int audioChannels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+                            int audioSampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+                            int minBufferSize = AudioTrack.getMinBufferSize(audioSampleRate,
+                                    (audioChannels == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO),
+                                    AudioFormat.ENCODING_PCM_16BIT);
+                            int maxInputSize = format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
+                            audioMaxInputSize = minBufferSize > 0 ? minBufferSize * 4 : maxInputSize;
+                            int frameSizeInBytes = audioChannels * 2;
+                            audioMaxInputSize = (audioMaxInputSize / frameSizeInBytes) * frameSizeInBytes;
+                            audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
+                                    audioSampleRate,
+                                    (audioChannels == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO),
+                                    AudioFormat.ENCODING_PCM_16BIT,
+                                    audioMaxInputSize,
+                                    AudioTrack.MODE_STREAM);
+                            audioTrack.play();
+                            try {
+                                mCodec = MediaCodec.createDecoderByType(mime);
+                                mCodec.configure(format, null, null, 0);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                    if (mCodec == null) {
+                        Log.d(TAG, "audio decoder is unexpectedly null");
+                        return;
+                    }
+                    mCodec.start();
+                    /*final ByteBuffer[] buffers = mCodec.getOutputBuffers();
+                    int sz = buffers[0].capacity();
+                    if (sz <= 0) {
+                        sz = audioMaxInputSize;
+                    }*/
+
+                    MediaCodec.BufferInfo audioBufferInfo = new MediaCodec.BufferInfo();
+                    ByteBuffer[] inputBuffers = mCodec.getInputBuffers();
+                    ByteBuffer[] outputBuffers = mCodec.getOutputBuffers();
+                    while (isDecoding){
+                        int inputBufferIndex = mCodec.dequeueInputBuffer(-1);
+                        if (inputBufferIndex >= 0) {
+                            ByteBuffer inputBuffer = inputBuffers[inputBufferIndex];
+                            //检索当前编码的样本并将其存储在字节缓冲区中
+                            int sampleSize = audioExtractor.readSampleData(inputBuffer, 0);
+                            if (sampleSize < 0) {
+                                //如果没有可获取的样本则退出循环
+                                mCodec.queueInputBuffer(inputBufferIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                                audioExtractor.unselectTrack(audioExtractorTrackIndex);
+                                break;
+                            } else {
+                                mCodec.queueInputBuffer(inputBufferIndex, 0, sampleSize, audioExtractor.getSampleTime(), 0);
+                                audioExtractor.advance();
+                            }
+                        }
+                        int outputBufferIndex = mCodec.dequeueOutputBuffer(audioBufferInfo, TIMEOUT_USEC);
+                        while (outputBufferIndex >= 0) {
+                            //获取解码后的ByteBuffer
+                            ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
+                            //用来保存解码后的数据
+                            byte[] outData = new byte[audioBufferInfo.size];
+                            outputBuffer.get(outData);
+                            //清空缓存
+                            outputBuffer.clear();
+                            //播放解码后的数据
+                            if (audioTrack != null){
+                                audioTrack.write(outData,0,outData.length);
+                            }
+                            //释放已经解码的buffer
+                            mCodec.releaseOutputBuffer(outputBufferIndex, false);
+                            outputBufferIndex = mCodec.dequeueOutputBuffer(audioBufferInfo, TIMEOUT_USEC);
+                        }
+
+                    }
+                    if (audioTrack != null){
+                        audioTrack.stop();
+                        audioTrack.release();
+                        audioTrack = null;
                     }
                     stopDecodeSync();
                 }catch (IOException e){
@@ -285,33 +297,5 @@ public class AudioDecoder {
         }
         return result;
     }
-    private class AudioData{
-        private int trackIndex;
-        private MediaCodec.BufferInfo audioBufferInfo;
-        private ByteBuffer audioByteBuffer;
 
-        public int getTrackIndex() {
-            return trackIndex;
-        }
-
-        public void setTrackIndex(int trackIndex) {
-            this.trackIndex = trackIndex;
-        }
-
-        public MediaCodec.BufferInfo getAudioBufferInfo() {
-            return audioBufferInfo;
-        }
-
-        public void setAudioBufferInfo(MediaCodec.BufferInfo audioBufferInfo) {
-            this.audioBufferInfo = audioBufferInfo;
-        }
-
-        public ByteBuffer getAudioByteBuffer() {
-            return audioByteBuffer;
-        }
-
-        public void setAudioByteBuffer(ByteBuffer audioByteBuffer) {
-            this.audioByteBuffer = audioByteBuffer;
-        }
-    }
 }

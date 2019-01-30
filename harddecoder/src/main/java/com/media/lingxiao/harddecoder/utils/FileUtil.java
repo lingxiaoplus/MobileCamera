@@ -120,14 +120,18 @@ public class FileUtil {
      *
      * @param angle  被旋转角度
      * @param bitmap 图片对象
+     * @param scale 是否镜像
      * @return 旋转后的图片
      */
-    public static Bitmap rotaingBitmap(int angle, Bitmap bitmap) {
+    public static Bitmap rotaingBitmap(int angle, boolean scale, Bitmap bitmap) {
         //bitmap = small(bitmap);   不缩放
         Bitmap returnBm = null;
         // 根据旋转角度，生成旋转矩阵
         Matrix matrix = new Matrix();
         matrix.postRotate(angle);
+        if (scale){
+            matrix.postScale(-1,1); //水平镜像
+        }
         try {
             // 将原始图片按照旋转矩阵进行旋转，并得到新的图片
             returnBm = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);

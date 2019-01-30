@@ -107,7 +107,7 @@ public class AudioActivity extends BaseActivity {
                 }else {
                     AudioEncoder.getInstance()
                             .setEncoderParams(getAudioParams())
-                            .startEncodeAacData(true);
+                            .startEncodeAacData();
                     mBtnEncoder.setText("停止编码");
                 }
                 break;

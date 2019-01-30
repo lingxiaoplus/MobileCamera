@@ -14,7 +14,7 @@ public class MediaSdk {
         }
         AudioEncoder.getInstance()
                 .setEncoderParams(params)
-                .startEncodeAacData(true);
+                .startEncodeAacData();
     }
     /*public static void dncodeAacToPcm(EncoderParams params){
             if (AudioEncoder.isEncoding()){
@@ -48,7 +48,7 @@ public class MediaSdk {
                 .StartEncodeH264Data();
         AudioEncoder.getInstance()
                 .setEncoderParams(params)
-                .startEncodeAacData(false);
+                .startEncodeAacData();
     }
 
 }

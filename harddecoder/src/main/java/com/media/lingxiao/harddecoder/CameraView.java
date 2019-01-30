@@ -13,18 +13,13 @@ import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.media.MediaRecorder;
-import android.net.Uri;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Looper;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
-import android.view.SurfaceHolder;
 import android.view.TextureView;
 import android.view.ViewGroup;
-import android.widget.Toast;
 
 import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
 import com.media.lingxiao.harddecoder.encoder.H264EncoderConsumer;
@@ -38,7 +33,7 @@ import java.util.List;
 
 public class CameraView extends TextureView implements TextureView.SurfaceTextureListener,
         H264EncoderConsumer.H264FrameListener,
-        AudioEncoder.AudioEncodeListener{
+        AudioEncoder.AudioEncodeListener {
     private int frameWidth;
     private int frameHeight;
     private int mCameraId;   //摄像头id
@@ -47,8 +42,6 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
     private int mAngle = 0;//需要顺时针旋转的角度
     private Camera mCamera;
     private Matrix mMatrix;
-    private Activity mActivity;
-    private String mPath = Environment.getExternalStorageDirectory().getAbsolutePath();
     private String mFileName; //照片名字
     private String mFileDir; //照片目录
     private MediaRecorder mediaRecorder;
@@ -57,16 +50,18 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
     private SurfaceTexture mTexture;
 
     private static final String TAG = CameraView.class.getSimpleName();
-    private int mRotation;
     private boolean isRecoder = false;  //是否正在录制
     private CameraHandlerThread mCameraHandlerThread;
+    private final Object mCaptureSync = new Object();
+    private boolean mCaptureStillImage;
+    private Bitmap mCaptureBitmap;
 
     public CameraView(Context context) {
-        this(context,null);
+        this(context, null);
     }
 
     public CameraView(Context context, AttributeSet attrs) {
-        this(context, attrs,0);
+        this(context, attrs, 0);
     }
 
     public CameraView(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -76,12 +71,12 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         frameWidth = tyArry.getInt(R.styleable.CameraView_frame_width, 1280);
         frameHeight = tyArry.getInt(R.styleable.CameraView_frame_height, 720);
         boolean camerBack = tyArry.getBoolean(R.styleable.CameraView_camera_back, true);
-        mCameraId = camerBack?Camera.CameraInfo.CAMERA_FACING_BACK:Camera.CameraInfo.CAMERA_FACING_FRONT;
+        mCameraId = camerBack ? Camera.CameraInfo.CAMERA_FACING_BACK : Camera.CameraInfo.CAMERA_FACING_FRONT;
         tyArry.recycle();
         this.mContext = context;
-        if (checkCameraHardware(context)){
+        if (checkCameraHardware(context)) {
             setSurfaceTextureListener(this);
-        }else {
+        } else {
             throw new NullPointerException("未检测到相机硬件");
         }
     }
@@ -90,12 +85,12 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
     public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
         try {
             this.mTexture = surface;
-            mRotation = getActivityFromContext(mContext)
+            int rotation = getActivityFromContext(mContext)
                     .getWindowManager()
                     .getDefaultDisplay()
                     .getRotation();
             mCameraHandlerThread = new CameraHandlerThread("camera thread");
-            mCameraHandlerThread.openCameraByHandler(frameWidth, frameHeight, surface, mRotation);
+            mCameraHandlerThread.openCameraByHandler(frameWidth, frameHeight, surface, rotation);
             //openCamera(frameWidth, frameHeight, surface, mRotation);
             ViewGroup.LayoutParams layoutParams = this.getLayoutParams();
             float scale = (float) frameHeight / frameWidth;
@@ -104,7 +99,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
             layoutParams.height = (int) scaleHeight;
             setLayoutParams(layoutParams);
         } catch (Exception e) {
-            Log.e(TAG,"摄像头被占用");
+            Log.e(TAG, "摄像头被占用");
             e.printStackTrace();
         }
     }
@@ -126,6 +121,19 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         /*long before = System.currentTimeMillis();
         Bitmap bitmap = getBitmap();
         Log.d(TAG, "获取bitmap耗时："+(System.currentTimeMillis()-before));*/
+        /*synchronized (mCaptureSync) {
+            if (mCaptureStillImage) {
+                long startTime = System.currentTimeMillis();
+                mCaptureStillImage = false;
+                if (mCaptureBitmap == null)
+                    mCaptureBitmap = getBitmap();
+                else
+                    getBitmap(mCaptureBitmap);
+                mCaptureSync.notifyAll();
+                long endTime = System.currentTimeMillis();
+                Log.d(TAG, "耗时:" + (endTime - startTime));
+            }
+        }*/
     }
 
 
@@ -136,26 +144,26 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         int widthSpecSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightSpecMode = MeasureSpec.getMode(heightMeasureSpec);
         int heightSpecSize = MeasureSpec.getSize(heightMeasureSpec);
-        if (widthSpecMode == MeasureSpec.AT_MOST && heightSpecMode == MeasureSpec.AT_MOST){
-            setMeasuredDimension(frameWidth,frameHeight);
-        }else if (widthSpecMode == MeasureSpec.AT_MOST){
-            setMeasuredDimension(frameWidth,heightSpecSize);
-        }else if (heightSpecMode == MeasureSpec.AT_MOST){
-            setMeasuredDimension(widthSpecSize,frameHeight);
+        if (widthSpecMode == MeasureSpec.AT_MOST && heightSpecMode == MeasureSpec.AT_MOST) {
+            setMeasuredDimension(frameWidth, frameHeight);
+        } else if (widthSpecMode == MeasureSpec.AT_MOST) {
+            setMeasuredDimension(frameWidth, heightSpecSize);
+        } else if (heightSpecMode == MeasureSpec.AT_MOST) {
+            setMeasuredDimension(widthSpecSize, frameHeight);
         }
     }
 
     @Override
     public void onGetH264(byte[] data, int width, int height) {
-        if (null != mCameraDataCallback){
-            mCameraDataCallback.onH264DataFrame(data,width,height);
+        if (null != mCameraDataCallback) {
+            mCameraDataCallback.onH264DataFrame(data, width, height);
         }
     }
 
     @Override
     public void onGetAac(byte[] data, int length) {
-        if (null != mCameraDataCallback){
-            mCameraDataCallback.onAacDataFrame(data,length);
+        if (null != mCameraDataCallback) {
+            mCameraDataCallback.onAacDataFrame(data, length);
         }
     }
 
@@ -170,23 +178,38 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
 
     }
 
+    public Bitmap getCaptureBitmap(int width, int height) {
+        synchronized (mCaptureSync) {
+            mCaptureStillImage = true;
+            try {
+                mCaptureSync.wait();
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            }
+            return mCaptureBitmap;
+        }
+    }
 
-    private class CameraHandlerThread extends HandlerThread{
+
+    private class CameraHandlerThread extends HandlerThread {
         private Handler mHandler;
+
         public CameraHandlerThread(String name) {
             super(name);
             start();
             mHandler = new Handler(getLooper());
         }
-        protected synchronized void notifyCameraOpen(){
+
+        protected synchronized void notifyCameraOpen() {
             notify();
         }
-        public synchronized void openCameraByHandler(final int width, final int height, final SurfaceTexture texture, final int rotation){
+
+        public synchronized void openCameraByHandler(final int width, final int height, final SurfaceTexture texture, final int rotation) {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
                     //post()执行会立即返回，而Runnable()会异步执行，可能在执行post()后立即使用mCamera时仍为null 所以用notify-wait
-                    CameraView.this.openCamera(width,height,texture,rotation);
+                    CameraView.this.openCamera(width, height, texture, rotation);
                     notifyCameraOpen();
                 }
             });
@@ -197,6 +220,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
             }
         }
     }
+
     /**
      * 初始化相机
      *
@@ -204,7 +228,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
      * @param height
      */
     //private ReentrantLock lock = new ReentrantLock();
-    private void openCamera(int width, int height,SurfaceTexture texture,int rotation) {
+    private void openCamera(int width, int height, SurfaceTexture texture, int rotation) {
         try {
             mCamera = Camera.open(mCameraId);
             Camera.Parameters parameters = mCamera.getParameters();
@@ -213,24 +237,23 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
             Camera.Size optionSize = getOptimalPreviewSize(width, height);
             this.frameWidth = optionSize.width;
             this.frameHeight = optionSize.height;
-            Log.e(TAG,"最后得到的分辨率："+"width: " + frameWidth+"  height: "+frameHeight);
+            Log.e(TAG, "最后得到的分辨率：" + "width: " + frameWidth + "  height: " + frameHeight);
             parameters.setPreviewSize(optionSize.width, optionSize.height);
             //设置照片尺寸
             parameters.setPictureSize(optionSize.width, optionSize.height);
-            //设置实时对焦 部分手机不支持会crash
-            //parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+            //设置实时对焦 部分手机不支持会crash 需要先判断是否支持
             List<String> focusModes = parameters.getSupportedFocusModes();
-            if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)){
+            if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)) {
                 parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
             }
+            setCameraDisplayOrientation(rotation);
             setCameraCallback();
             mCamera.setPreviewTexture(texture);
             mCamera.setParameters(parameters);
-            setCameraDisplayOrientation(rotation);
             //开启预览
             mCamera.startPreview();
         } catch (IOException e) {
-            Log.e(TAG,"摄像头被占用");
+            Log.e(TAG, "摄像头被占用");
             e.printStackTrace();
         }
     }
@@ -238,33 +261,33 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
     /**
      * onPreviewFrame()在执行Camera.open()时所在的线程运行 onPreviewFrame中有耗时操作，会造成ui卡顿
      */
-    private void setCameraCallback(){
+    private void setCameraCallback() {
         //1.设置回调:系统相机某些核心部分不走JVM,进行特殊优化，所以效率很高
         mCamera.setPreviewCallbackWithBuffer(new Camera.PreviewCallback() {
             @Override
             public void onPreviewFrame(byte[] datas, Camera camera) {
                 //if (!lock.tryLock()) return;
                 if (null != mCameraDataCallback) {
-                    byte[] yuvData = Arrays.copyOf(datas,datas.length);
+                    byte[] yuvData = Arrays.copyOf(datas, datas.length);
                     if (mOrienta != 0) {
                         //说明有旋转角度 最好在native层做数据处理
                         yuvData = new byte[datas.length];
-                        if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
+                        if (mCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
                             //yuvData = rotateYUVDegree90(datas,mWidth,mHeight);  //耗时比较久 引起使用mediacodec录制卡顿
                             //yuvData = YuvUtil.rotateYuv90(datas,frameWidth,frameHeight); //70ms-120ms之间，一般稳定在70ms
                             //使用libyuv优化 ，google就是牛皮 旋转+转换加起来耗时在20ms左右
-                            YuvUtil.NV21RotateAndConvertToNv12(datas,yuvData,frameWidth,frameHeight,mOrienta);
+                            YuvUtil.NV21RotateAndConvertToNv12(datas, yuvData, frameWidth, frameHeight, mOrienta);
 
-                        }else {
+                        } else {
                             //yuvData = YuvUtil.rotateYUVDegree270AndMirror(datas,frameWidth,frameHeight);
-                            YuvUtil.NV21RotateAndMirrorConvertToNv12(datas,yuvData,frameWidth,frameHeight,mOrienta);
+                            YuvUtil.NV21RotateAndMirrorConvertToNv12(datas, yuvData, frameWidth, frameHeight, mOrienta);
                         }
                     }
-                    synchronized (CameraView.class){
-                        if (null != mCameraDataCallback){
+                    synchronized (CameraView.class) {
+                        if (null != mCameraDataCallback) {
                             mCameraDataCallback.onYuvDataFrame(yuvData, camera);
                         }
-                        if (H264EncoderConsumer.isEncodering()){
+                        if (H264EncoderConsumer.isEncodering()) {
                             H264EncoderConsumer.getInstance().addYUVData(yuvData);
                         }
                     }
@@ -312,7 +335,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         } else { // back-facing
             result = (info.orientation - degrees + 360) % 360;
         }
-        Log.d(TAG,"摄像头被旋转的角度;" + result);
+        Log.d(TAG, "摄像头被旋转的角度;" + result);
         mOrienta = result;//该值有其它用途
         mCamera.setDisplayOrientation(result);
     }
@@ -405,6 +428,10 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         int cameraCount = 0;
         Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
         cameraCount = Camera.getNumberOfCameras();//得到摄像头的个数
+        int rotation = getActivityFromContext(mContext)
+                .getWindowManager()
+                .getDefaultDisplay()
+                .getRotation();
 
         for (int i = 0; i < cameraCount; i++) {
             Camera.getCameraInfo(i, cameraInfo);//得到每一个摄像头的信息
@@ -416,8 +443,8 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                     mCamera = null;//取消原来摄像头
                     //mCamera = Camera.open(i);//打开当前选中的摄像头
                     mCameraId = 1;
-                    if (mCameraHandlerThread != null){
-                        mCameraHandlerThread.openCameraByHandler(frameWidth, frameHeight, mTexture, mRotation);
+                    if (mCameraHandlerThread != null) {
+                        mCameraHandlerThread.openCameraByHandler(frameWidth, frameHeight, mTexture, rotation);
                     }
                     break;
                 }
@@ -429,8 +456,8 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                     mCamera = null;//取消原来摄像头
                     //mCamera = Camera.open(i);//打开当前选中的摄像头
                     mCameraId = 0;
-                    if (mCameraHandlerThread != null){
-                        mCameraHandlerThread.openCameraByHandler(frameWidth, frameHeight, mTexture, mRotation);
+                    if (mCameraHandlerThread != null) {
+                        mCameraHandlerThread.openCameraByHandler(frameWidth, frameHeight, mTexture, rotation);
                     }
                     break;
                 }
@@ -441,26 +468,26 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
     /**
      * 和下面方法的区别是：这个可以对视频数据进行操作，比如添加水印，滤镜等等
      */
-    public void startHardRecorde(EncoderParams params){
+    public void startHardRecorde(EncoderParams params) {
         if (!H264EncoderConsumer.getInstance().isEncodering()) {
             H264EncoderConsumer.getInstance()
                     .setEncoderParams(params)
                     .StartEncodeH264Data();
             AudioEncoder.getInstance()
                     .setEncoderParams(params)
-                    .startEncodeAacData(false);
+                    .startEncodeAacData();
             H264EncoderConsumer.getInstance().setEncodeH264Listner(this);
             this.isRecoder = true;
         }
     }
-    public void stopHardRecorde(){
+
+    public void stopHardRecorde() {
         H264EncoderConsumer.getInstance().stopEncodeH264();
         AudioEncoder.getInstance().stopEncodeAac();
         this.isRecoder = false;
     }
 
-    @SuppressLint("NewApi")
-    public boolean startRecorde(String filePath) {
+    public boolean startRecorde(EncoderParams params) {
         try {
             // TODO init button
             //mCamera.stopPreview();
@@ -486,13 +513,13 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
             // 设置视频录制的分辨率。必须放在设置编码和格式的后面，否则报错
             mediaRecorder.setVideoSize(this.frameWidth, this.frameHeight);
             // 设置视频的比特率 (清晰度)
-            mediaRecorder.setVideoEncodingBitRate(3 * 1024 * 1024);
+            mediaRecorder.setVideoEncodingBitRate(params.getVideoQuality() * this.frameWidth * this.frameHeight);
             // 设置录制的视频帧率。必须放在设置编码和格式的后面，否则报错
             /*if (defaultVideoFrameRate != -1) {
                 mediaRecorder.setVideoFrameRate(defaultVideoFrameRate);
             }*/
             // 设置视频文件输出的路径 .mp4
-            mediaRecorder.setOutputFile(filePath);
+            mediaRecorder.setOutputFile(params.getVideoPath());
             mediaRecorder.setMaxDuration(30000);
             //mediaRecorder.setPreviewDisplay(holder.getSurface());
 
@@ -507,12 +534,13 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         }
         return true;
     }
+
     public void stopRecorde() {
         if (mediaRecorder != null) {
             mediaRecorder.stop();
             mediaRecorder.release();
             mediaRecorder = null;
-            Log.d(TAG,"停止录像");
+            Log.d(TAG, "停止录像");
             this.isRecoder = false;
             if (mCamera != null) {
                 try {
@@ -531,7 +559,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
      * @param fileName 照片名字
      * @param filePath 照片的路径
      */
-    public void takePicture(String filePath,String fileName) {
+    public void takePicture(String filePath, String fileName) {
         this.mFileName = fileName;
         this.mFileDir = filePath;
         FileUtil.decideDirExist(mFileDir);  //创建文件夹
@@ -540,9 +568,9 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
             @Override
             public void onAutoFocus(boolean success, Camera camera) {
                 if (success) {
-                    Log.d(TAG,"对焦成功");
+                    Log.d(TAG, "对焦成功");
                 } else {
-                    Log.d(TAG,"对焦失败");
+                    Log.d(TAG, "对焦失败");
                 }
             }
         });
@@ -562,13 +590,15 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                                 //因为照片有可能是旋转的，这里要做一下处理
                                 Camera.CameraInfo info = new Camera.CameraInfo();
                                 Camera.getCameraInfo(mCameraId, info);
-                                Bitmap realBmp = FileUtil.rotaingBitmap(info.orientation, bitmap);
-                                file = FileUtil.saveFile(realBmp, mFileDir + "/"+ mFileName);
+
+                                Bitmap realBmp = FileUtil.rotaingBitmap(info.orientation,
+                                        mCameraId == Camera.CameraInfo.CAMERA_FACING_FRONT, bitmap);
+                                file = FileUtil.saveFile(realBmp, mFileDir + "/" + mFileName);
                                 mPicListener.onPictureTaken("", file);
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
-                            Log.d(TAG,"错误：  " + e.getMessage());
+                            Log.d(TAG, "错误：  " + e.getMessage());
                             if (mPicListener != null) {
                                 mPicListener.onPictureTaken("保存失败：" + e.getMessage(), file);
                             }
@@ -583,11 +613,13 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
 
     /**
      * 旋转yuv格式的数据270度并镜像翻转
+     *
      * @param data
      * @param imageWidth
      * @param imageHeight
      * @return
      */
+    @Deprecated
     private byte[] rotateYUVDegree270AndMirror(byte[] data, int imageWidth, int imageHeight) {
         byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
         // Rotate and mirror the Y luma
@@ -618,11 +650,13 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
 
     /**
      * yuv旋转90度  y = width*height，u = y/4 v = y/4   耗时150ms-200ms之间
+     *
      * @param data
      * @param imageWidth
      * @param imageHeight
      * @return
      */
+    @Deprecated
     private byte[] rotateYUVDegree90(byte[] data, int imageWidth, int imageHeight) {
         byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
         // Rotate the Y luma
@@ -665,7 +699,9 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
 
     public interface CameraDataCallback {
         void onYuvDataFrame(byte[] yuv, Camera camera);
-        void onH264DataFrame(byte[] h264, int width,int height);
+
+        void onH264DataFrame(byte[] h264, int width, int height);
+
         void onAacDataFrame(byte[] aac, int length);
     }
 
@@ -677,12 +713,13 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         }
     }
 
-    public int getFrameWidth(){
+    public int getFrameWidth() {
         if (mOrienta != 0)
             return frameHeight;
         return frameWidth;
     }
-    public int getFrameHeight(){
+
+    public int getFrameHeight() {
         if (mOrienta != 0)
             return frameWidth;
         return frameHeight;

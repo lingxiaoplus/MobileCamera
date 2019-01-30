@@ -138,6 +138,9 @@ public class MainActivity extends BaseActivity {
 
     @OnClick(R.id.iv_change)
     public void changeCamera(View v){
+        int rotation = getWindowManager()
+                .getDefaultDisplay()
+                .getRotation();
         mCameraView.changeCamera();
     }
     @OnClick(R.id.iv_local)
@@ -203,7 +206,10 @@ public class MainActivity extends BaseActivity {
         }else {
             String filePath = ContentValue.MAIN_PATH + "/mediaRecorder_"
                     + getSystemTime() + ".mp4";
-            mCameraView.startRecorde(filePath);
+            EncoderParams params = getVideoParams();
+            params.setVideoPath(filePath);
+            params.setVideoQuality(EncoderParams.MIDDLE_VIDEO_BIT_RATE);
+            mCameraView.startRecorde(params);
             Toast.makeText(getApplicationContext(), "文件保存在：" + filePath,
                     Toast.LENGTH_LONG).show();
             recorderBtn.setText("停止录制");

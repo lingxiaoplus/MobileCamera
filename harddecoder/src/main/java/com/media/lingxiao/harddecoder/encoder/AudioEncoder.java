@@ -83,10 +83,7 @@ public class AudioEncoder {
     }
 
 
-    /**
-     * @param addADTS 是否添加adts信息  编码为aac需要 混合mp4时不需要添加
-     */
-    public void startEncodeAacData(final boolean addADTS) {
+    public void startEncodeAacData() {
         isEncoding = true;
         Thread aacEncoderThread = new Thread(new Runnable() {
             @Override
@@ -97,9 +94,6 @@ public class AudioEncoder {
                         int readBytes = mAudioRecord.read(audioBuf, 0, mAudioRecordBufferSize);
                         if (readBytes > 0) {
                             try {
-                                if (addADTS) {
-                                    encodeAudioBytesWithADTS(audioBuf, readBytes);
-                                }
                                 encodeAudioBytes(audioBuf, readBytes);
                             } catch (Exception e) {
                                 e.printStackTrace();
@@ -212,48 +206,6 @@ public class AudioEncoder {
     }
 
 
-    /**
-     * 编码时加上adts头信息
-     *
-     * @param audioBuf
-     * @param readBytes
-     */
-    private void encodeAudioBytesWithADTS(byte[] audioBuf, int readBytes) {
-        int inputIndex = mMediaCodec.dequeueInputBuffer(-1);//获取输入缓存的index
-        if (inputIndex >= 0) {
-            ByteBuffer inputByteBuf = inputBufferArray[inputIndex];
-            if (audioBuf == null || readBytes <= 0) {
-                mMediaCodec.queueInputBuffer(inputIndex, 0, 0, getPTSUs(), MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-            } else {
-                inputByteBuf.clear();
-                inputByteBuf.put(audioBuf);//添加数据
-                inputByteBuf.limit(audioBuf.length);//限制ByteBuffer的访问长度
-                mMediaCodec.queueInputBuffer(inputIndex, 0, readBytes, getPTSUs(), 0);//把输入缓存塞回去给MediaCodec
-            }
-        }
-        int outputIndex;
-        byte[] frameBytes = null;
-        do {
-            outputIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 12000);
-            ByteBuffer outPutBuf = outputBufferArray[outputIndex];
-            //给adts头字段空出7的字节
-            int length = mBufferInfo.size + 7;
-            if (frameBytes == null || frameBytes.length < length) {
-                frameBytes = new byte[length];
-            }
-            addADTStoPacket(frameBytes, length);
-            outPutBuf.get(frameBytes, 7, mBufferInfo.size);
-            if (audioListener != null) {
-                audioListener.onGetAac(frameBytes, length);
-            }
-            try {
-                fileOutputStream.write(frameBytes, 0, length);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            mMediaCodec.releaseOutputBuffer(outputIndex, false);
-        } while (outputIndex >= 0 && isEncoding);
-    }
 
     private long prevPresentationTimes = 0;
 
