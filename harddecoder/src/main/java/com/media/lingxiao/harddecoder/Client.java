@@ -50,7 +50,7 @@ public class Client{
     }
 
     public void play(SurfaceHolder holder,int w,int h){
-        mDecoder = new H264Decoder();
+        mDecoder = H264Decoder.getInstance();
         mDecoder.play(holder,w,h);
         streamConnection.setDefaultRemoteAddress(new InetSocketAddress(mIp, mPort));
         ConnectFuture future = streamConnection.connect();

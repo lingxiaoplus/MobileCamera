@@ -1,11 +1,19 @@
 package com.media.lingxiao.harddecoder.decoder;
 
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.media.MediaCodec;
+import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.os.Build;
 import android.util.Log;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -16,6 +24,23 @@ public class H264Decoder {
     private MediaCodec mCodec;
     private boolean isStart = false;
     public static final String TAG = H264Decoder.class.getSimpleName();
+    private static boolean isDecoding = false;
+    private static boolean isPause = false;
+    private static H264Decoder mH264Decoder;
+    private H264Decoder(){
+
+    }
+    public static H264Decoder getInstance(){
+        if (mH264Decoder == null){
+            synchronized (H264Decoder.class){
+                if (mH264Decoder == null){
+                    mH264Decoder = new H264Decoder();
+                }
+            }
+        }
+        return mH264Decoder;
+    }
+
     public void play(SurfaceHolder holder,int width,int height) {
         try {
             Log.d(TAG, "播放的宽: "+width+"   高："+height);
@@ -163,4 +188,143 @@ public class H264Decoder {
             outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, 0);
         }
     }
+
+
+
+    private Surface mSurface;
+    public void startDecodeFromMPEG_4(final String MPEG_4_Path, Surface surface){
+        if (!new File(MPEG_4_Path).exists()){
+            try {
+                throw new FileNotFoundException("MPEG_4 file not find");
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+        this.mSurface = surface;
+        isDecoding = true;
+        Thread mediaDecodeTrhread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    MediaExtractor videoExtractor = new MediaExtractor(); //MediaExtractor作用是将音频和视频的数据进行分离
+                    videoExtractor.setDataSource(MPEG_4_Path);
+
+                    int videoTrackIndex = -1; //提供音频的音频轨
+                    //多媒体流中video轨和audio轨的总个数
+                    for (int i = 0; i < videoExtractor.getTrackCount(); i++) {
+                        MediaFormat format = videoExtractor.getTrackFormat(i);
+                        String mime = format.getString(MediaFormat.KEY_MIME);//主要描述mime类型的媒体格式
+                        if (mime.startsWith("video/")) { //找到音轨
+                            videoExtractor.selectTrack(i);
+                            videoTrackIndex = i;
+                            int width = format.getInteger(MediaFormat.KEY_WIDTH);
+                            int height = format.getInteger(MediaFormat.KEY_HEIGHT);
+                            float time = format.getLong(MediaFormat.KEY_DURATION) / 1000000;
+                            try {
+                                mCodec = MediaCodec.createDecoderByType(mime);
+                                mCodec.configure(format, mSurface, null, 0);
+                                if (mVideoCallBack != null){
+                                    mVideoCallBack.onGetVideoInfo(width,height,time);
+                                }
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            break;
+                        }
+                    }
+                    if (mCodec == null) {
+                        Log.d(TAG, "video decoder is unexpectedly null");
+                        return;
+                    }
+                    mCodec.start();
+
+                    MediaCodec.BufferInfo videoBufferInfo = new MediaCodec.BufferInfo();
+                    long startTimeStamp = System.currentTimeMillis(); //记录开始解码的时间
+                    while (isDecoding){
+                        // 暂停
+                        if (isPause) {
+                            continue;
+                        }
+                        int inputBufferIndex = mCodec.dequeueInputBuffer(-1);
+                        if (inputBufferIndex >= 0) {
+                            ByteBuffer inputBuffer;
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                inputBuffer = mCodec.getInputBuffer(inputBufferIndex);
+                            }else {
+                                ByteBuffer[] inputBuffers = mCodec.getInputBuffers();
+                                inputBuffer = inputBuffers[inputBufferIndex];
+                            }
+                            //检索当前编码的样本并将其存储在字节缓冲区中
+                            int sampleSize = videoExtractor.readSampleData(inputBuffer, 0);
+                            if (sampleSize < 0) {
+                                //如果没有可获取的样本则退出循环
+                                mCodec.queueInputBuffer(inputBufferIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                                videoExtractor.unselectTrack(videoTrackIndex);
+                                break;
+                            } else {
+                                mCodec.queueInputBuffer(inputBufferIndex, 0, sampleSize, videoExtractor.getSampleTime(), 0);
+                                videoExtractor.advance();
+                            }
+                        }
+                        int outputBufferIndex = mCodec.dequeueOutputBuffer(videoBufferInfo, TIMEOUT_USEC);
+                        while (outputBufferIndex >= 0) {
+                            decodeDelay(videoBufferInfo, startTimeStamp);
+                            mCodec.releaseOutputBuffer(outputBufferIndex, true);
+                            outputBufferIndex = mCodec.dequeueOutputBuffer(videoBufferInfo, 0);
+                        }
+
+                    }
+                    stopDecodeSync();
+                    videoExtractor.release();
+                }catch (IOException e){
+                    e.printStackTrace();
+                }
+
+            }
+        });
+        mediaDecodeTrhread.start();
+    }
+
+    /**
+     * 延迟解码
+     * @param bufferInfo
+     * @param startMillis
+     */
+    private void decodeDelay(MediaCodec.BufferInfo bufferInfo, long startMillis) {
+        while (bufferInfo.presentationTimeUs / 1000 > System.currentTimeMillis() - startMillis) {
+            try {
+                long current = bufferInfo.presentationTimeUs / 1000 - (System.currentTimeMillis() - startMillis);
+                //Log.d(TAG, "decodeDelay: " + current + "ms");
+                Thread.sleep(current);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                break;
+            }
+        }
+    }
+
+    private void stopDecodeSync(){
+        if (null != mCodec){
+            mCodec.stop();
+            mCodec.release();
+            mCodec = null;
+        }
+    }
+
+    public static void pause() {
+        isPause = true;
+    }
+
+    public void stopDecode(){
+        isDecoding = false;
+    }
+
+    private VideoCallBack mVideoCallBack;
+    public void setVideoCallBack(VideoCallBack callBack){
+        this.mVideoCallBack = callBack;
+    }
+    public interface VideoCallBack{
+        void onGetVideoInfo(int width,int height,float time);
+    }
+
 }

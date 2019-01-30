@@ -1,6 +1,5 @@
-package com.media.lingxiao.harddecoder;
+package com.media.lingxiao.harddecoder.widget;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -21,6 +20,8 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.ViewGroup;
 
+import com.media.lingxiao.harddecoder.EncoderParams;
+import com.media.lingxiao.harddecoder.R;
 import com.media.lingxiao.harddecoder.encoder.AudioEncoder;
 import com.media.lingxiao.harddecoder.encoder.H264EncoderConsumer;
 import com.media.lingxiao.harddecoder.utils.FileUtil;

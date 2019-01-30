@@ -24,7 +24,7 @@ camera入门系列，基于camera，后期换为camera2实现。主要实现的�
 在布局文件中加入：
 
 ```xml
-<com.media.lingxiao.harddecoder.CameraView
+<com.media.lingxiao.harddecoder.widget.CameraView
         android:id="@+id/mCameraView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

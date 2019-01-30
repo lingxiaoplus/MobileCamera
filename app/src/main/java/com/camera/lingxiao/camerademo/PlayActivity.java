@@ -10,6 +10,7 @@ import android.view.SurfaceView;
 import android.widget.Toast;
 
 import com.media.lingxiao.harddecoder.decoder.H264Decoder;
+import com.media.lingxiao.harddecoder.widget.SimpleVideoView;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -21,13 +22,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
+import androidx.appcompat.app.ActionBar;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
 public class PlayActivity extends BaseActivity {
 
     @BindView(R.id.surfaceView_play)
-    SurfaceView mSurfaceView;
+    SimpleVideoView mSurfaceView;
 
     private DataInputStream mInputStream;
     private SurfaceHolder mHolder;
@@ -49,7 +51,19 @@ public class PlayActivity extends BaseActivity {
         super.initWidget();
         Intent intent = getIntent();
         path = intent.getStringExtra("path");
-        File f = new File(path);
+
+        mSurfaceView.addCallback(new SimpleVideoView.VideoCallback() {
+            @Override
+            public void surfaceCreated() {
+                mSurfaceView.setDataSource(path);
+            }
+        });
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+            actionBar.setTitle("简易视频播放器");
+        }
+        /*File f = new File(path);
         if (null == f || !f.exists() || f.length() == 0) {
             Toast.makeText(this, "视频文件不存在", Toast.LENGTH_LONG).show();
             return;
@@ -66,7 +80,7 @@ public class PlayActivity extends BaseActivity {
             }
         }
         mHolder = mSurfaceView.getHolder();
-        mHolder.addCallback(new SurfaceCallback());
+        mHolder.addCallback(new SurfaceCallback());*/
     }
 
     private class SurfaceCallback implements SurfaceHolder.Callback {

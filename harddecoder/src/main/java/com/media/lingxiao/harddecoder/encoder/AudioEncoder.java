@@ -21,8 +21,6 @@ public class AudioEncoder {
     private MediaCodec.BufferInfo mBufferInfo;
     private final String mime = "audio/mp4a-latm";
     private int bitRate = 96000;
-    private ByteBuffer[] inputBufferArray;
-    private ByteBuffer[] outputBufferArray;
     private FileOutputStream fileOutputStream;
     private MediaCodec mMediaCodec;
 
@@ -62,9 +60,6 @@ public class AudioEncoder {
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             //start（）后进入执行状态，才能做后续的操作
             mMediaCodec.start();
-            //获取输入缓存，输出缓存
-            inputBufferArray = mMediaCodec.getInputBuffers();
-            outputBufferArray = mMediaCodec.getOutputBuffers();
             startAudioRecord(params);
             mBufferInfo = new MediaCodec.BufferInfo();
 
@@ -134,7 +129,13 @@ public class AudioEncoder {
         //dequeueInputBuffer（time）需要传入一个时间值，-1表示一直等待，0表示不等待有可能会丢帧，其他表示等待多少毫秒
         int inputIndex = mMediaCodec.dequeueInputBuffer(-1);//获取输入缓存的index
         if (inputIndex >= 0) {
-            ByteBuffer inputByteBuf = inputBufferArray[inputIndex];
+            ByteBuffer inputByteBuf;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                inputByteBuf = mMediaCodec.getInputBuffer(inputIndex);
+            }else {
+                ByteBuffer[] inputBufferArray = mMediaCodec.getInputBuffers();
+                inputByteBuf = inputBufferArray[inputIndex];
+            }
             if (audioBuf == null || readBytes <= 0) {
                 mMediaCodec.queueInputBuffer(inputIndex, 0, 0, getPTSUs(), MediaCodec.BUFFER_FLAG_END_OF_STREAM);
             } else {
@@ -170,7 +171,13 @@ public class AudioEncoder {
                     Log.i(TAG, "数据流结束，退出循环");
                     break;
                 }
-                ByteBuffer outPutBuf = outputBufferArray[outputIndex];
+                ByteBuffer outPutBuf;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    outPutBuf = mMediaCodec.getOutputBuffer(outputIndex);
+                }else {
+                    ByteBuffer[] outputBufferArray = mMediaCodec.getOutputBuffers();
+                    outPutBuf = outputBufferArray[outputIndex];
+                }
                 if (byteBufSize != 0) {
 
                     //因为上面的addTrackIndex方法不一定会被调用,所以要在此处再判断并添加一次,这也是混合的难点之一

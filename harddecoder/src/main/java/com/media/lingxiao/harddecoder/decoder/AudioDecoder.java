@@ -7,6 +7,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.util.Log;
 
 import com.media.lingxiao.harddecoder.ApiException;
@@ -41,7 +42,8 @@ public class AudioDecoder {
     private final String mime = "audio/mp4a-latm";
     private MediaCodec.BufferInfo mBufferInfo;
     private BufferedOutputStream outputStream;
-    private static boolean isDecoding = false;
+    private static volatile boolean isDecoding = false;
+    private static volatile boolean isPause = false;
     private DataInputStream mInputStream;
 
     private static final String TAG = AudioDecoder.class.getSimpleName();
@@ -103,7 +105,12 @@ public class AudioDecoder {
         ByteBuffer[] outputBuffers = mCodec.getOutputBuffers();
         int inputBufIndex = mCodec.dequeueInputBuffer(-1);
         if (inputBufIndex > 0){
-            ByteBuffer inputBuffer = inputBuffers[inputBufIndex];
+            ByteBuffer inputBuffer;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                inputBuffer = mCodec.getInputBuffer(inputBufIndex);
+            }else {
+                inputBuffer = inputBuffers[inputBufIndex];
+            }
             inputBuffer.clear();
             inputBuffer.put(audioBuf);//添加数据
             inputBuffer.limit(audioBuf.length);//限制ByteBuffer的访问长度
@@ -113,7 +120,11 @@ public class AudioDecoder {
         ByteBuffer outputBuffer;
         while (outputBufferIndex >= 0) {
             //获取解码后的ByteBuffer
-            outputBuffer = outputBuffers[outputBufferIndex];
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                outputBuffer = mCodec.getOutputBuffer(outputBufferIndex);
+            }else {
+                outputBuffer = outputBuffers[outputBufferIndex];
+            }
             //用来保存解码后的数据
             byte[] outData = new byte[mBufferInfo.size];
             outputBuffer.get(outData);
@@ -162,12 +173,19 @@ public class AudioDecoder {
             mCodec = null;
         }
         try {
-            outputStream.flush();
-            outputStream.close();
+            if (outputStream != null){
+                outputStream.flush();
+                outputStream.close();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
+    public static void pause() {
+        isPause = true;
+    }
+
     public void stopDecode(){
         isDecoding = false;
     }
@@ -197,20 +215,21 @@ public class AudioDecoder {
                         String mime = format.getString(MediaFormat.KEY_MIME);//主要描述mime类型的媒体格式
                         if (mime.startsWith("audio/")) { //找到音轨
                             audioExtractor.selectTrack(i);
+                            audioExtractorTrackIndex = i;
                             int audioChannels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
                             int audioSampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
                             int minBufferSize = AudioTrack.getMinBufferSize(audioSampleRate,
                                     (audioChannels == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO),
                                     AudioFormat.ENCODING_PCM_16BIT);
-                            int maxInputSize = format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
-                            audioMaxInputSize = minBufferSize > 0 ? minBufferSize * 4 : maxInputSize;
-                            int frameSizeInBytes = audioChannels * 2;
-                            audioMaxInputSize = (audioMaxInputSize / frameSizeInBytes) * frameSizeInBytes;
+                            //int maxInputSize = format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
+                            //audioMaxInputSize = minBufferSize > 0 ? minBufferSize * 4 : maxInputSize;
+                            //int frameSizeInBytes = audioChannels * 2;
+                            //audioMaxInputSize = (audioMaxInputSize / frameSizeInBytes) * frameSizeInBytes;
                             audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
                                     audioSampleRate,
                                     (audioChannels == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO),
                                     AudioFormat.ENCODING_PCM_16BIT,
-                                    audioMaxInputSize,
+                                    minBufferSize,
                                     AudioTrack.MODE_STREAM);
                             audioTrack.play();
                             try {
@@ -219,6 +238,7 @@ public class AudioDecoder {
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
+                            break;
                         }
                     }
                     if (mCodec == null) {
@@ -226,19 +246,25 @@ public class AudioDecoder {
                         return;
                     }
                     mCodec.start();
-                    /*final ByteBuffer[] buffers = mCodec.getOutputBuffers();
-                    int sz = buffers[0].capacity();
-                    if (sz <= 0) {
-                        sz = audioMaxInputSize;
-                    }*/
 
                     MediaCodec.BufferInfo audioBufferInfo = new MediaCodec.BufferInfo();
                     ByteBuffer[] inputBuffers = mCodec.getInputBuffers();
                     ByteBuffer[] outputBuffers = mCodec.getOutputBuffers();
+                    long startTimeStamp = System.currentTimeMillis();
                     while (isDecoding){
+                        // 暂停
+                        if (isPause) {
+                            continue;
+                        }
                         int inputBufferIndex = mCodec.dequeueInputBuffer(-1);
                         if (inputBufferIndex >= 0) {
-                            ByteBuffer inputBuffer = inputBuffers[inputBufferIndex];
+                            ByteBuffer inputBuffer;
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                inputBuffer = mCodec.getInputBuffer(inputBufferIndex);
+                            }else {
+                                inputBuffer = inputBuffers[inputBufferIndex];
+                            }
+                            if (inputBuffer == null) return;
                             //检索当前编码的样本并将其存储在字节缓冲区中
                             int sampleSize = audioExtractor.readSampleData(inputBuffer, 0);
                             if (sampleSize < 0) {
@@ -252,9 +278,15 @@ public class AudioDecoder {
                             }
                         }
                         int outputBufferIndex = mCodec.dequeueOutputBuffer(audioBufferInfo, TIMEOUT_USEC);
+                        ByteBuffer outputBuffer;
                         while (outputBufferIndex >= 0) {
+                            decodeDelay(audioBufferInfo,startTimeStamp);
                             //获取解码后的ByteBuffer
-                            ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                outputBuffer = mCodec.getOutputBuffer(outputBufferIndex);
+                            }else {
+                                outputBuffer = outputBuffers[outputBufferIndex];//6.0以上，使用这个部分机型出现crash
+                            }
                             //用来保存解码后的数据
                             byte[] outData = new byte[audioBufferInfo.size];
                             outputBuffer.get(outData);
@@ -275,6 +307,7 @@ public class AudioDecoder {
                         audioTrack.release();
                         audioTrack = null;
                     }
+                    audioExtractor.release();
                     stopDecodeSync();
                 }catch (IOException e){
                     e.printStackTrace();
@@ -285,6 +318,23 @@ public class AudioDecoder {
         audioDecodeTrhread.start();
     }
 
+    /**
+     * 延迟解码
+     * @param bufferInfo
+     * @param startMillis
+     */
+    private void decodeDelay(MediaCodec.BufferInfo bufferInfo, long startMillis) {
+        while (bufferInfo.presentationTimeUs / 1000 > System.currentTimeMillis() - startMillis) {
+            try {
+                long current = bufferInfo.presentationTimeUs / 1000 - (System.currentTimeMillis() - startMillis);
+                //Log.d(TAG, "decodeDelay: " + current + "ms");
+                Thread.sleep(current);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                break;
+            }
+        }
+    }
     public static boolean isDncoding() {
         return isDecoding;
     }

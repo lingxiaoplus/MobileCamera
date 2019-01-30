@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     >
-    <com.media.lingxiao.harddecoder.CameraView
+    <com.media.lingxiao.harddecoder.widget.CameraView
         android:id="@+id/surfaceView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

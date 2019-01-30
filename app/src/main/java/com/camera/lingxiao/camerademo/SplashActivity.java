@@ -119,8 +119,11 @@ public class SplashActivity extends BaseActivity{
         builder.setItems(files, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                AudioDecoder.getInstance()
-                        .startDecodeFromMPEG_4(files[i]);
+                /*AudioDecoder.getInstance()
+                        .startDecodeFromMPEG_4(files[i]);*/
+                Intent intent = new Intent(getApplicationContext(),PlayActivity.class);
+                intent.putExtra("path",files[i]);
+                startActivity(intent);
             }
         });
         builder.show();
