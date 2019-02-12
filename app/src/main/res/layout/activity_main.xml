@@ -34,17 +34,28 @@
             android:id="@+id/bt_encoder"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="编码h264"/>
+            android:text="编码h264"
+            android:visibility="gone"/>
         <Button
             android:id="@+id/bt_decoder"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:visibility="gone"
             android:text="解码h264"/>
         <Button
             android:id="@+id/bt_muxer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="音视频混合"/>
+
+        <TextView
+            android:id="@+id/tv_address"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="10dp"
+            android:textColor="@android:color/white"
+            />
+
         <TextView
             android:id="@+id/tv_recode_time"
             android:layout_width="wrap_content"
@@ -52,7 +63,7 @@
             android:text="00:00:00"
             android:layout_marginLeft="10dp"
             android:textColor="@android:color/holo_red_light"
-            android:visibility="invisible"
+            android:visibility="gone"
             tools:visibility="visible"/>
     </LinearLayout>
     <LinearLayout

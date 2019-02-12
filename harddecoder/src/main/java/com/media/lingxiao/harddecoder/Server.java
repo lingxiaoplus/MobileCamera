@@ -27,6 +27,8 @@ public class Server{
     private static final String TAG = Server.class.getSimpleName();
     private NioSocketAcceptor acceptor;
     private ServerConfig config;
+    private InetSocketAddress mStreamAddress;
+
     public Server() {
         acceptor = new NioSocketAcceptor();
         acceptor.setHandler(new StreamHandler());
@@ -52,7 +54,8 @@ public class Server{
 
         try {
             acceptor.setReuseAddress(true);
-            acceptor.bind(new InetSocketAddress(port));
+            mStreamAddress = new InetSocketAddress(port);
+            acceptor.bind(mStreamAddress);
         } catch (IOException e) {
             e.printStackTrace();
             return false;
@@ -64,6 +67,9 @@ public class Server{
      */
     public void stop() {
         acceptor.dispose(true);
+        if (mStreamAddress != null){
+            acceptor.unbind(mStreamAddress);
+        }
     }
 
     public void broadcastPreviewFrameData(VideoStreamModel model){

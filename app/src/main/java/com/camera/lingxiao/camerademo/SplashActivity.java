@@ -75,7 +75,10 @@ public class SplashActivity extends BaseActivity{
 
     @OnClick(R.id.button_player)
     public void onGetPlayList(View v){
-        showProgressDialog();
+        Intent intent = new Intent(getApplicationContext(),VideoListActivity.class);
+        startActivity(intent);
+
+        /*showProgressDialog();
         Observable.create(new ObservableOnSubscribe<String[]>() {
             @Override
             public void subscribe(ObservableEmitter<String[]> emitter) {
@@ -110,7 +113,7 @@ public class SplashActivity extends BaseActivity{
                     public void onComplete() {
 
                     }
-                });
+                });*/
     }
 
     private void showDialog(final String[] files) {

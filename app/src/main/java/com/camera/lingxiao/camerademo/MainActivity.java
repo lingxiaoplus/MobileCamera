@@ -5,14 +5,17 @@ import android.hardware.Camera;
 import android.media.AudioFormat;
 import android.media.MediaRecorder;
 import android.net.Uri;
+import android.os.Environment;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.camera.lingxiao.camerademo.crash.ContentValue;
+import com.camera.lingxiao.camerademo.utils.MediaUtil;
 import com.media.lingxiao.harddecoder.widget.CameraView;
 import com.media.lingxiao.harddecoder.EncoderParams;
 import com.media.lingxiao.harddecoder.Server;
@@ -20,7 +23,10 @@ import com.media.lingxiao.harddecoder.encoder.H264Encoder;
 import com.media.lingxiao.harddecoder.model.VideoStreamModel;
 import com.media.lingxiao.harddecoder.tlv.ServerConfig;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -49,6 +55,8 @@ public class MainActivity extends BaseActivity {
     ImageView shutterImg;
     @BindView(R.id.iv_change)
     ImageView changeImg;
+    @BindView(R.id.tv_address)
+    TextView textAddress;
 
     public static final int RC_CAMERA_AND_LOCATION = 1;
     private Uri localImgUri;
@@ -71,14 +79,17 @@ public class MainActivity extends BaseActivity {
     @Override
     protected void initWidget() {
         super.initWidget();
+        //屏幕常亮
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         new Thread(()-> {
             mServer = new Server();
             boolean ret = mServer.start(2333, new ServerConfig());
             if(ret){
                 Log.d(TAG, "服务器启动成功，端口: 2333");
             }
+            createFilePath();
         }).start();
-
+        textAddress.setText("推流地址: " + MediaUtil.getIPV4(getApplicationContext()) + ":2333");
         mCameraView.setPicTakenCallBack(new CameraView.PictureTakenCallBack() {
             @Override
             public void onPictureTaken(String result, File file) {
@@ -115,6 +126,14 @@ public class MainActivity extends BaseActivity {
                     model.setVideo(h264Data);
                     mServer.broadcastPreviewFrameData(model);
                 }
+                byte[] h264Data = Arrays.copyOf(h264, h264.length);
+                if (outputStream != null){
+                    try {
+                        outputStream.write(h264Data);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
 
             @Override
@@ -124,7 +143,19 @@ public class MainActivity extends BaseActivity {
         });
 
     }
-
+    private BufferedOutputStream outputStream;
+    private void createFilePath(){
+        String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/h264_from_mina_before.h264";
+        File file = new File(path);
+        if(file.exists()){
+            file.delete();
+        }
+        try {
+            outputStream = new BufferedOutputStream(new FileOutputStream(file));
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
     @OnClick(R.id.iv_change)
     public void changeCamera(View v){
         mCameraView.changeCamera();
@@ -177,10 +208,19 @@ public class MainActivity extends BaseActivity {
         if (!mCameraView.isRecoder()){
             mCameraView.startHardRecorde(getVideoParams());
             mBtnMuxer.setText("停止混合编码");
-
         }else {
             mCameraView.stopHardRecorde();
             mBtnMuxer.setText("音视频混合");
+        }
+        if (outputStream != null){
+            try {
+                outputStream.flush();
+                outputStream.close();
+                outputStream = null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
         }
     }
     @OnClick(R.id.bt_recode)
@@ -239,8 +279,8 @@ public class MainActivity extends BaseActivity {
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
+    protected void onStop() {
+        super.onStop();
         if (mServer != null) {
             mServer.stop();
         }

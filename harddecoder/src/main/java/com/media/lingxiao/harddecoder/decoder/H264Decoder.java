@@ -27,6 +27,7 @@ public class H264Decoder {
     private static boolean isDecoding = false;
     private static boolean isPause = false;
     private static H264Decoder mH264Decoder;
+    private SurfaceHolder _holder;
     private H264Decoder(){
 
     }
@@ -44,21 +45,11 @@ public class H264Decoder {
     public void play(SurfaceHolder holder,int width,int height) {
         try {
             Log.d(TAG, "播放的宽: "+width+"   高："+height);
-            mCodec = MediaCodec.createDecoderByType("video/avc");
-            MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", width, height);
-            mCodec.configure(mediaFormat, holder.getSurface(), null, 0);
-            mCodec.start();
             isStart = true;
+            this._holder = holder;
         } catch (Exception ex) {
             ex.printStackTrace();
         }
-        if (isStart) {
-            mCodec.stop();
-            //释放资源
-            mCodec.release();
-            isStart = false;
-        }
-
     }
 
     public void stop(){
@@ -72,8 +63,32 @@ public class H264Decoder {
     private byte[] lastBuf;
     private List<byte[]> nals = new ArrayList<>(30);
     private boolean csdSet = false; // sps和pps是否设置，在mediacodec里面可以不显式设置到mediaformat，但需要在buffer的前两帧给出
-
+    private int lastWidth = 1080;
+    private int lastHeight = 1920;
     public synchronized void handleH264(byte[] buffer) {
+        if(_holder == null || _holder.getSurface() == null) return;
+        if(mCodec == null) {
+            lastBuf = null;
+            nals.clear();
+            if(mCodec != null) {
+                mCodec.stop();
+                mCodec.release();
+            }
+            try {
+                mCodec = MediaCodec.createDecoderByType("video/avc");
+                MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", lastWidth, lastHeight);
+
+                mCodec.configure(mediaFormat, _holder.getSurface(), null, 0);
+                mCodec.start();
+            } catch (IOException e) {
+                if(mCodec != null) {
+                    mCodec.stop();
+                    mCodec.release();
+                    mCodec = null;
+                }
+            }
+        }
+        if(mCodec == null) return;
         byte[] typedAr = null;
         if (buffer == null || buffer.length < 1) return;
         if (lastBuf != null) {
@@ -85,13 +100,13 @@ public class H264Decoder {
         }
         int lastNalEndPos = 0;
         byte b1 = -1; // 前一个
-        byte b2 = -1; // 前二个
+        byte b2 = -2; // 前二个
         List<Integer> nalStartPos = new ArrayList<Integer>();
-        for (int i = 0; i < typedAr.length - 1; i += 2) { // 可能出现的bug，length小于2
+        for (int i = 0; i < typedAr.length - 1; i += 2) {
             byte b_0 = typedAr[i];
             byte b_1 = typedAr[i + 1];
-            if (b_0 == 1 && b1 == 0 && b2 == 0) {
-                nalStartPos.add(i - 3);
+            if (b1 == 0 && b_0 == 0 && b_1 == 0) {
+                nalStartPos.add(i - 1);
             } else if (b_1 == 1 && b_0 == 0 && b1 == 0 && b2 == 0) {
                 nalStartPos.add(i - 2);
             }
@@ -142,14 +157,16 @@ public class H264Decoder {
                 }
             }
         }
-        if (!csdSet)
+        if (!csdSet) {
             nals.clear();
+        }
+        //LogUtils.i("csdSet");
         if (nals.size() > 0) {
             Iterator<byte[]> it = nals.iterator();
             while (it.hasNext()) {
                 ByteBuffer inputBuffer;
-                //在给指定Index的inputbuffer[]填充数据后，调用这个函数把数据传给解码器
-                int inputBufferIndex = mCodec.dequeueInputBuffer(TIMEOUT_USEC);
+                //TODO:如果一直IllegalStateException 后面填时间戳
+                int inputBufferIndex = mCodec.dequeueInputBuffer(10);
                 if (inputBufferIndex >= 0) {
                     // 版本判断。当手机系统小于 5.0 时，用arras
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -166,30 +183,33 @@ public class H264Decoder {
                 }
                 break;
             }
+
         }
         /**
          *清理内存
          */
-        if (nals.size() >30){
+        while(nals.size() > 30) {
+            nals.remove(0);
+        }
+        /*if (nals.size() >30){
             int idx = 0;
             while (idx++<30){
                 nals.remove(0);
             }
             lastBuf = null;
-        }
+        }*/
         //解码后的数据，包含每一个buffer的元数据信息，例如偏差，在相关解码器中有效的数据大小
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
         //获取解码得到的byte[]数据 10000同样为等待时间 同上-1代表一直等待，0代表不等待。此处单位为微秒
         //此处建议不要填-1 有些时候并没有数据输出，那么他就会一直卡在这 等待
-        int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
-        while (outputBufferIndex >= 0) {//每次解码完成的数据不一定能一次吐出 所以用while循环，保证解码器吐出所有数据
+        int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, 100);
+        while (outputBufferIndex >= 0) {
+            //每次解码完成的数据不一定能一次吐出 所以用while循环，保证解码器吐出所有数据
             //对outputbuffer的处理完后，调用这个函数把buffer重新返回给codec类。此操作一定要做，不然MediaCodec用完所有的Buffer后 将不能向外输出数据
             mCodec.releaseOutputBuffer(outputBufferIndex, true);
             outputBufferIndex = mCodec.dequeueOutputBuffer(bufferInfo, 0);
         }
     }
-
-
 
     private Surface mSurface;
     public void startDecodeFromMPEG_4(final String MPEG_4_Path, Surface surface){

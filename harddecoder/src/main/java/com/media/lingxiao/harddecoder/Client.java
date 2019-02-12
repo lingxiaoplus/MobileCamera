@@ -11,6 +11,8 @@ import com.media.lingxiao.harddecoder.tlv.TLVCodecFactory;
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.future.ConnectFuture;
 import org.apache.mina.core.service.IoHandlerAdapter;
+import org.apache.mina.core.service.IoService;
+import org.apache.mina.core.service.IoServiceListener;
 import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolCodecFilter;
@@ -30,7 +32,6 @@ public class Client{
 
     private NioSocketConnector streamConnection;
     private IoSession configSession, streamSession;
-    private H264Decoder mDecoder;
     private boolean playing,streamConnected;
     private String mIp;
     private int mPort;
@@ -44,14 +45,12 @@ public class Client{
         streamConnection.getFilterChain().addLast("tlv", codecFilter);
         streamConnection.setHandler(new StreamClientHandler());
         streamConnection.getSessionConfig().setIdleTime(IdleStatus.WRITER_IDLE, 5); // 10秒未发出数据的话要发心跳
-        //streamConnection.addListener(new StreamAutoReconnectHandler());
+        //streamConnection.addListener(new StreamAutoReconnectHandler());   //断线重连
         streamConnection.setConnectTimeoutMillis(5000);
-
     }
 
     public void play(SurfaceHolder holder,int w,int h){
-        mDecoder = H264Decoder.getInstance();
-        mDecoder.play(holder,w,h);
+        H264Decoder.getInstance().play(holder,w,h);
         streamConnection.setDefaultRemoteAddress(new InetSocketAddress(mIp, mPort));
         ConnectFuture future = streamConnection.connect();
         future.awaitUninterruptibly();
@@ -63,9 +62,7 @@ public class Client{
     }
 
     public void stopPlay(){
-        if (mDecoder != null){
-            mDecoder.stop();
-        }
+        H264Decoder.getInstance().stop();
         if(!streamConnected){
             return;
         }
@@ -140,12 +137,9 @@ public class Client{
                     }
                     byte[] h264Segment = new byte[bufferSize];
                     buffer.get(h264Segment);
-                    if (mDecoder == null){
-                        return;
-                    }
                     Log.i(TAG,"回调：" + h264Segment.length);
                     outputStream.write(h264Segment);
-                    mDecoder.handleH264(h264Segment);
+                    H264Decoder.getInstance().handleH264(h264Segment);
                     break;
             }
         }
@@ -168,6 +162,67 @@ public class Client{
         @Override
         public void exceptionCaught(IoSession session, Throwable cause) throws Exception {
             super.exceptionCaught(session, cause);
+        }
+    }
+
+    /**
+     * 配置连接断线重连
+     */
+    private final class ConfigAutoReconnectHandler implements IoServiceListener {
+
+        @Override
+        public void serviceActivated(IoService ioService) throws Exception {
+
+        }
+
+        @Override
+        public void serviceIdle(IoService ioService, IdleStatus idleStatus) throws Exception {
+
+        }
+
+        @Override
+        public void serviceDeactivated(IoService ioService) throws Exception {
+
+        }
+
+        @Override
+        public void sessionCreated(IoSession ioSession) throws Exception {
+
+        }
+
+        @Override
+        public void sessionClosed(IoSession ioSession) throws Exception {
+
+        }
+
+        @Override
+        public void sessionDestroyed(IoSession ioSession) throws Exception {
+            /*if(m_state == State.Connected) {
+                m_state = State.ReConnecting;
+                if(FaceCamera.this.connectedStateChangedEventHandler != null)
+                    FaceCamera.this.connectedStateChangedEventHandler.onConnectedStateChanged(false);
+            }
+            // 需要重连
+            while(m_state == State.ReConnecting) {
+                try {
+                    ConnectFuture future = configConnection.connect();
+                    future.awaitUninterruptibly();// 等待连接创建成功
+                    configSession = future.getSession();// 获取会话
+                    if(m_state != State.ReConnecting) {
+                        configSession.closeNow();
+                        break;
+                    }
+                    if (configSession != null) {
+                        if(FaceCamera.this.connectedStateChangedEventHandler != null)
+                            FaceCamera.this.connectedStateChangedEventHandler.onConnectedStateChanged(true);
+                        configConnected = true;
+                        m_state = State.Connected;
+                        break;
+                    }
+                } catch (Exception ex) {
+
+                }
+            }*/
         }
     }
 

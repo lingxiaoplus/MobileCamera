@@ -13,7 +13,6 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.READ_LOGS" />
 
-
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -36,7 +35,8 @@
         <activity android:name=".MediaExtractActivity" />
         <activity android:name=".crash.CrashActivity" />
         <activity android:name=".AudioActivity" />
-        <activity android:name=".BaseActivity"></activity>
+        <activity android:name=".BaseActivity" />
+        <activity android:name=".VideoListActivity"></activity>
     </application>
 
 </manifest>

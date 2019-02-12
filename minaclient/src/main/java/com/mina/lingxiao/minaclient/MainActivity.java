@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.WindowManager;
 
 import com.media.lingxiao.harddecoder.Client;
 
@@ -21,15 +22,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_main);
         mSurfaceView = findViewById(R.id.surfaceview);
-
         Intent intent = getIntent();
         mIp = intent.getStringExtra("ip");
         mPort = intent.getStringExtra("port");
-
-
-
     }
 
     @Override

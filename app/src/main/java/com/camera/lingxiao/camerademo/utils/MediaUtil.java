@@ -1,5 +1,6 @@
 package com.camera.lingxiao.camerademo.utils;
 
+import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -7,7 +8,12 @@ import android.media.MediaMuxer;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.util.Enumeration;
 import java.util.Vector;
 
 public class MediaUtil {
@@ -19,24 +25,27 @@ public class MediaUtil {
 
     private MediaFormat mVideoFormat;
     private MediaFormat mAudioFormat;
-    public MediaUtil(String path){
+
+    public MediaUtil(String path) {
         try {
             mMuxer = new MediaMuxer(path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
     /**
      * 将音频和视频进行合成
-     * @param audioPath 提供音频的文件路径
-     * @param audioStartTime 音频的开始时间
-     * @param frameVideoPath 提供视频的文件路径
+     *
+     * @param audioPath            提供音频的文件路径
+     * @param audioStartTime       音频的开始时间
+     * @param frameVideoPath       提供视频的文件路径
      * @param combinedVideoOutFile 保存的文件
      */
     public static int combineTwoVideos(String audioPath,
-                                        long audioStartTime,
-                                        String frameVideoPath,
-                                        File combinedVideoOutFile) throws IOException {
+                                       long audioStartTime,
+                                       String frameVideoPath,
+                                       File combinedVideoOutFile) throws IOException {
         MediaMuxer mediaMuxer = new MediaMuxer(combinedVideoOutFile.getAbsolutePath(),
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4); //用于合成音频与视频
 
@@ -68,7 +77,7 @@ public class MediaUtil {
         for (int i = 0; i < videoExtractor.getTrackCount(); i++) {
             MediaFormat videoFormate = videoExtractor.getTrackFormat(i);
             String videoMime = videoFormate.getString(MediaFormat.KEY_MIME);
-            if (videoMime.startsWith("video/")){
+            if (videoMime.startsWith("video/")) {
                 //extractor.selectTrack(i);
                 frameExtractorTrackIndex = i;
                 frameMuxerTrackIndex = mediaMuxer.addTrack(videoFormate);
@@ -83,22 +92,22 @@ public class MediaUtil {
         audioExtractor.selectTrack(audioExtractorTrackIndex); //选择想要处理的track
         MediaCodec.BufferInfo audioBufferInfo = new MediaCodec.BufferInfo();
         ByteBuffer audioByteBuffer = ByteBuffer.allocate(audioMaxInputSize);
-        while (true){
+        while (true) {
             //检索当前编码的样本并将其存储在字节缓冲区中
-            int readSampleSize = audioExtractor.readSampleData(audioByteBuffer,0);
-            if (readSampleSize < 0){
+            int readSampleSize = audioExtractor.readSampleData(audioByteBuffer, 0);
+            if (readSampleSize < 0) {
                 //如果没有可获取的样本则退出循环
                 audioExtractor.unselectTrack(audioExtractorTrackIndex);
                 break;
             }
 
             long sampleTime = audioExtractor.getSampleTime();
-            if (sampleTime < audioStartTime){
+            if (sampleTime < audioStartTime) {
                 //如果样本时间小于我们想要的开始时间就快进
                 audioExtractor.advance();
                 continue;
             }
-            if (sampleTime > audioStartTime + frameDuration){
+            if (sampleTime > audioStartTime + frameDuration) {
                 //如果样本时间大于开始时间+视频时长，就退出循环
                 break;
             }
@@ -106,17 +115,17 @@ public class MediaUtil {
             audioBufferInfo.offset = 0;
             audioBufferInfo.flags = audioExtractor.getSampleFlags();
             audioBufferInfo.presentationTimeUs = sampleTime - audioStartTime;
-            mediaMuxer.writeSampleData(audioMuxerTrackIndex,audioByteBuffer,audioBufferInfo);
+            mediaMuxer.writeSampleData(audioMuxerTrackIndex, audioByteBuffer, audioBufferInfo);
             audioExtractor.advance();
         }
 
         videoExtractor.selectTrack(frameExtractorTrackIndex); //选择想要处理的track
         MediaCodec.BufferInfo videoBufferInfo = new MediaCodec.BufferInfo();
         ByteBuffer videoByteBuffer = ByteBuffer.allocate(frameMaxInputSize);
-        while (true){
+        while (true) {
             //检索当前编码的样本并将其存储在字节缓冲区中
-            int readSampleSize = videoExtractor.readSampleData(videoByteBuffer,0);
-            if (readSampleSize < 0){
+            int readSampleSize = videoExtractor.readSampleData(videoByteBuffer, 0);
+            if (readSampleSize < 0) {
                 //如果没有可获取的样本则退出循环
                 videoExtractor.unselectTrack(frameExtractorTrackIndex);
                 break;
@@ -125,8 +134,8 @@ public class MediaUtil {
             videoBufferInfo.size = readSampleSize;
             videoBufferInfo.offset = 0;
             videoBufferInfo.flags = videoExtractor.getSampleFlags();
-            videoBufferInfo.presentationTimeUs = 1000*1000/frameRate;
-            mediaMuxer.writeSampleData(frameMuxerTrackIndex,videoByteBuffer,videoBufferInfo);
+            videoBufferInfo.presentationTimeUs = 1000 * 1000 / frameRate;
+            mediaMuxer.writeSampleData(frameMuxerTrackIndex, videoByteBuffer, videoBufferInfo);
             videoExtractor.advance();
         }
 
@@ -137,13 +146,12 @@ public class MediaUtil {
     }
 
 
-
-    public void recordeH264toMp4(MediaFormat format,File outPut) throws IOException {
+    public void recordeH264toMp4(MediaFormat format, File outPut) throws IOException {
         MediaMuxer mediaMuxer = new MediaMuxer(outPut.getAbsolutePath(),
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         //暂时只有video的track
         int videoTrackIndex = mediaMuxer.addTrack(format);
-        if (!muxerDatas.isEmpty()){
+        if (!muxerDatas.isEmpty()) {
             MuxerData data = muxerDatas.remove(0);
             /*int track;
             if (data.trackIndex == TRACK_VIDEO) {
@@ -151,32 +159,32 @@ public class MediaUtil {
             } else {
                 track = audioTrackIndex;
             }*/
-            LogUtil.e( "写入混合数据 " + data.bufferInfo.size);
+            LogUtil.e("写入混合数据 " + data.bufferInfo.size);
             try {
                 mediaMuxer.writeSampleData(videoTrackIndex, data.byteBuf, data.bufferInfo);
             } catch (Exception e) {
-                LogUtil.e( "写入混合数据失败!" + e.toString());
+                LogUtil.e("写入混合数据失败!" + e.toString());
             }
         }
     }
 
 
-    public void addTrack(MediaFormat format,boolean isVideo){
-        if (mAudioTrackIndex != -1 && mVideoTrackIndex != -1){
+    public void addTrack(MediaFormat format, boolean isVideo) {
+        if (mAudioTrackIndex != -1 && mVideoTrackIndex != -1) {
             new RuntimeException("already addTrack");
         }
 
         int track = mMuxer.addTrack(format);
-        if (isVideo){
+        if (isVideo) {
             mVideoFormat = format;
             mVideoTrackIndex = track;
-            if (mAudioTrackIndex != -1){
+            if (mAudioTrackIndex != -1) {
                 mMuxer.start();
             }
-        }else {
+        } else {
             mAudioFormat = format;
             mAudioTrackIndex = track;
-            if (mVideoTrackIndex != -1){  //当音频轨和视频轨都添加，才start
+            if (mVideoTrackIndex != -1) {  //当音频轨和视频轨都添加，才start
                 mMuxer.start();
             }
         }
@@ -219,6 +227,7 @@ public class MediaUtil {
         int trackIndex;
         ByteBuffer byteBuf;
         MediaCodec.BufferInfo bufferInfo;
+
         public MuxerData(int trackIndex, ByteBuffer byteBuf, MediaCodec.BufferInfo bufferInfo) {
             this.trackIndex = trackIndex;
             this.byteBuf = byteBuf;
@@ -226,4 +235,25 @@ public class MediaUtil {
         }
     }
 
+    /**
+     * 获取ipv4地址
+     * @param context
+     * @return
+     */
+    public static String getIPV4(Context context) {
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements(); ) {
+                NetworkInterface intf = en.nextElement();
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements(); ) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress() && (inetAddress instanceof Inet4Address)) {
+                        return inetAddress.getHostAddress();
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            ex.printStackTrace();
+        }
+        return "null";
+    }
 }

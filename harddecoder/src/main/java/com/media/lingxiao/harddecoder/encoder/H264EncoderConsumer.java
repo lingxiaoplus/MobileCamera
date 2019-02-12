@@ -19,6 +19,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 
+import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
+import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
+
 
 public class H264EncoderConsumer {
     private MediaCodec mediaCodec;
@@ -107,7 +110,7 @@ public class H264EncoderConsumer {
             inputBuffer.clear();
             inputBuffer.put(data);
             inputBuffer.clear();
-            mediaCodec.queueInputBuffer(inputBufferIndex, 0, data.length, System.nanoTime() / 1000, MediaCodec.BUFFER_FLAG_KEY_FRAME);
+            mediaCodec.queueInputBuffer(inputBufferIndex, 0, data.length, System.nanoTime() / 1000, BUFFER_FLAG_KEY_FRAME);
         }
     }
 
@@ -166,8 +169,9 @@ public class H264EncoderConsumer {
                                         outputBuffer.position(mBufferInfo.offset);
                                         outputBuffer.limit(mBufferInfo.offset + mBufferInfo.size);
                                     }
+
                                     // 判断输出数据是否为关键帧 必须在关键帧添加之后，再添加普通帧，不然会出现马赛克
-                                    boolean keyFrame = (mBufferInfo.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0;
+                                    boolean keyFrame = (mBufferInfo.flags & BUFFER_FLAG_KEY_FRAME) != 0;
                                     if (keyFrame){
                                         // 录像时，第1秒画面会静止，这是由于音视轨没有完全被添加
                                         Log.i(TAG,"编码混合,视频关键帧数据(I帧)");
@@ -178,16 +182,36 @@ public class H264EncoderConsumer {
                                         if(isAddKeyFrame){
                                             Log.i(TAG,"编码混合,视频普通帧数据(B帧,P帧)" + mBufferInfo.size);
                                             mediaUtil.putStrem(outputBuffer, mBufferInfo, true);
+
                                         }
                                     }
 
+                                    // TODO: 2019/2/12 只有用下面的方法回调保存数据，才能在surface中显示 
                                     byte[] outData = new byte[mBufferInfo.size];
+                                    //从buff中读取数据到outData中
                                     outputBuffer.get(outData);
-                                    outputStream.write(outData,0,outData.length);
-                                    if (h264Listener != null){
-                                        h264Listener.onGetH264(outData,
-                                                mEncoderParams.getFrameWidth(),mEncoderParams.getFrameHeight());
+                                    if(mBufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG){
+                                        configbyte = new byte[mBufferInfo.size];
+                                        configbyte = outData;
+                                    }else if(mBufferInfo.flags == BUFFER_FLAG_KEY_FRAME){
+                                        byte[] keyframe = new byte[mBufferInfo.size + configbyte.length];
+                                        System.arraycopy(configbyte, 0, keyframe, 0, configbyte.length);
+                                        //把编码后的视频帧从编码器输出缓冲区中拷贝出来
+                                        System.arraycopy(outData, 0, keyframe, configbyte.length, outData.length);
+
+                                        //outputStream.write(keyframe,0,keyframe.length);
+                                        if (h264Listener != null){
+                                            h264Listener.onGetH264(keyframe,
+                                                    mEncoderParams.getFrameWidth(),mEncoderParams.getFrameHeight());
+                                        }
+                                    }else{
+                                        //outputStream.write(outData,0,outData.length);
+                                        if (h264Listener != null){
+                                            h264Listener.onGetH264(outData,
+                                                    mEncoderParams.getFrameWidth(),mEncoderParams.getFrameHeight());
+                                        }
                                     }
+
                                     // 处理结束，释放输出缓存区资源
                                     mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                                 }
