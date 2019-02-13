@@ -1,4 +1,4 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.video;
 
 import android.content.Intent;
 import android.media.MediaCodec;
@@ -9,6 +9,8 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.Toast;
 
+import com.camera.lingxiao.camerademo.BaseActivity;
+import com.camera.lingxiao.camerademo.R;
 import com.media.lingxiao.harddecoder.decoder.H264Decoder;
 import com.media.lingxiao.harddecoder.widget.SimpleVideoView;
 
@@ -52,12 +54,7 @@ public class PlayActivity extends BaseActivity {
         Intent intent = getIntent();
         path = intent.getStringExtra("path");
 
-        mSurfaceView.addCallback(new SimpleVideoView.VideoCallback() {
-            @Override
-            public void surfaceCreated() {
-                mSurfaceView.setDataSource(path);
-            }
-        });
+        mSurfaceView.addCallback(()-> mSurfaceView.setDataSource(path));
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setDisplayHomeAsUpEnabled(true);

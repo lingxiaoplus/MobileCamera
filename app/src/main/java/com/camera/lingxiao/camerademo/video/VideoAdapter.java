@@ -1,7 +1,8 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.video;
 
 
 
+import com.camera.lingxiao.camerademo.R;
 import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.chad.library.adapter.base.BaseViewHolder;
 

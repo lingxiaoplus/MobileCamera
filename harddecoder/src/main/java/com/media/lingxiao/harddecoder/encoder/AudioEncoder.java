@@ -26,7 +26,7 @@ public class AudioEncoder {
 
     private static volatile boolean isEncoding;
     private static final String TAG = AudioEncoder.class.getSimpleName();
-    private MediaUtil mediaUtil;
+
     private AudioRecord mAudioRecord;
     private int mAudioRecordBufferSize;
     private static AudioEncoder mAudioEncoder;
@@ -48,7 +48,6 @@ public class AudioEncoder {
 
     public AudioEncoder setEncoderParams(EncoderParams params) {
         try {
-            mediaUtil = MediaUtil.getDefault();
             mMediaCodec = MediaCodec.createEncoderByType(mime);
             MediaFormat mediaFormat = new MediaFormat();
             mediaFormat.setString(MediaFormat.KEY_MIME, mime);
@@ -93,7 +92,6 @@ public class AudioEncoder {
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
-
                         }
                     }
                 }
@@ -132,7 +130,7 @@ public class AudioEncoder {
             ByteBuffer inputByteBuf;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 inputByteBuf = mMediaCodec.getInputBuffer(inputIndex);
-            }else {
+            } else {
                 ByteBuffer[] inputBufferArray = mMediaCodec.getInputBuffers();
                 inputByteBuf = inputBufferArray[inputIndex];
             }
@@ -156,7 +154,7 @@ public class AudioEncoder {
                 //设置混合器视频轨道，如果音频已经添加则启动混合器（保证音视频同步）
                 synchronized (AudioEncoder.class) {
                     MediaFormat format = mMediaCodec.getOutputFormat();
-                    mediaUtil.addTrack(format, false);
+                    MediaUtil.getDefault().addTrack(format, false);
                 }
             } else {
                 //获取缓存信息的长度
@@ -174,17 +172,17 @@ public class AudioEncoder {
                 ByteBuffer outPutBuf;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     outPutBuf = mMediaCodec.getOutputBuffer(outputIndex);
-                }else {
+                } else {
                     ByteBuffer[] outputBufferArray = mMediaCodec.getOutputBuffers();
                     outPutBuf = outputBufferArray[outputIndex];
                 }
                 if (byteBufSize != 0) {
 
                     //因为上面的addTrackIndex方法不一定会被调用,所以要在此处再判断并添加一次,这也是混合的难点之一
-                    if (!mediaUtil.isAddAudioTrack()) {
+                    if (!MediaUtil.getDefault().isAddAudioTrack()) {
                         synchronized (AudioEncoder.this) {
                             MediaFormat newFormat = mMediaCodec.getOutputFormat();
-                            mediaUtil.addTrack(newFormat, false);
+                            MediaUtil.getDefault().addTrack(newFormat, false);
                         }
                     }
 
@@ -192,7 +190,7 @@ public class AudioEncoder {
                         outPutBuf.position(mBufferInfo.offset);
                         outPutBuf.limit(mBufferInfo.offset + mBufferInfo.size);
                     }
-                    mediaUtil.putStrem(outPutBuf, mBufferInfo, false);
+                    MediaUtil.getDefault().putStrem(outPutBuf, mBufferInfo, false);
                     Log.i(TAG, "------编码混合音频数据-----" + mBufferInfo.size);
 
                     //给adts头字段空出7的字节
@@ -211,7 +209,6 @@ public class AudioEncoder {
             }
         } while (outputIndex >= 0 && isEncoding);
     }
-
 
 
     private long prevPresentationTimes = 0;
@@ -266,7 +263,7 @@ public class AudioEncoder {
                 e.printStackTrace();
             }
         }
-        mediaUtil.release();
+        MediaUtil.getDefault().release();
         if (audioListener != null) {
             audioListener.onStopEncodeAacSuccess();
         }

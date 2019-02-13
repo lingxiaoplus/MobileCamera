@@ -1,14 +1,15 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.video;
 
 import android.Manifest;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 
+import com.camera.lingxiao.camerademo.BaseActivity;
+import com.camera.lingxiao.camerademo.R;
 import com.chad.library.adapter.base.BaseQuickAdapter;
 
 import java.util.ArrayList;
@@ -19,7 +20,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import butterknife.BindView;
-import butterknife.OnClick;
 import pub.devrel.easypermissions.EasyPermissions;
 
 public class VideoListActivity extends BaseActivity {

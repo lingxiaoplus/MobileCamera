@@ -1,15 +1,12 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.video;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
-import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 import android.view.View;
@@ -17,16 +14,16 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.camera.lingxiao.camerademo.BaseActivity;
+import com.camera.lingxiao.camerademo.R;
 import com.camera.lingxiao.camerademo.crash.ContentValue;
 import com.camera.lingxiao.camerademo.utils.MediaUtil;
 
 import java.io.File;
 import java.io.IOException;
 
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.ActionBar;
 import butterknife.BindView;
-import butterknife.ButterKnife;
 import butterknife.OnClick;
 
 public class MediaExtractActivity extends BaseActivity {

@@ -226,20 +226,6 @@ public class MediaUtil {
             outputBuffer.limit(bufferInfo.size + bufferInfo.offset);
             mMuxer.writeSampleData(isVideo?mVideoTrackIndex:mAudioTrackIndex,outputBuffer,bufferInfo);
         }
-
-        /*mMuxer.stop();
-        mMuxer.release();
-        mMuxer = null;
-        mVideoTrackIndex = mAudioTrackIndex = -1;
-        addTrack(mVideoFormat, true);
-        addTrack(mAudioFormat, false);
-        try {
-            mMuxer = new MediaMuxer(mFilePath + "-" + ++index + ".mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }*/
-
     }
 
 

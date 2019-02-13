@@ -29,14 +29,14 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MainActivity"
+            android:name=".video.MainActivity"
             android:theme="@style/FullScreenTheme" />
-        <activity android:name=".PlayActivity" />
-        <activity android:name=".MediaExtractActivity" />
+        <activity android:name=".video.PlayActivity" />
+        <activity android:name=".video.MediaExtractActivity" />
         <activity android:name=".crash.CrashActivity" />
-        <activity android:name=".AudioActivity" />
+        <activity android:name=".audio.AudioActivity" />
         <activity android:name=".BaseActivity" />
-        <activity android:name=".VideoListActivity"></activity>
+        <activity android:name=".video.VideoListActivity"></activity>
     </application>
 
 </manifest>

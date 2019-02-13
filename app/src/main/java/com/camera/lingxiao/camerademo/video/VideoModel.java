@@ -1,4 +1,4 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.video;
 
 public class VideoModel {
     private long id;

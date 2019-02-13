@@ -1,14 +1,14 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.audio;
 
 import android.content.DialogInterface;
 import android.media.AudioFormat;
 import android.media.MediaRecorder;
-import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
+import com.camera.lingxiao.camerademo.BaseActivity;
+import com.camera.lingxiao.camerademo.R;
 import com.camera.lingxiao.camerademo.crash.ContentValue;
 import com.camera.lingxiao.camerademo.utils.FileUtil;
 import com.media.lingxiao.harddecoder.EncoderParams;
@@ -21,7 +21,6 @@ import java.util.List;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import butterknife.BindView;
-import butterknife.ButterKnife;
 import butterknife.OnClick;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;

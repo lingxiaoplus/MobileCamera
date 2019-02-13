@@ -54,6 +54,10 @@ public class Client{
         streamConnection.setDefaultRemoteAddress(new InetSocketAddress(mIp, mPort));
         ConnectFuture future = streamConnection.connect();
         future.awaitUninterruptibly();
+        if (!future.isConnected()){
+            Log.i(TAG,"视频端口未连接:");
+            return;
+        }
         streamSession = future.getSession();
         Log.i(TAG,"视频端口连接:" + streamSession);
         streamConnected = streamSession != null;
@@ -139,6 +143,9 @@ public class Client{
                     buffer.get(h264Segment);
                     Log.i(TAG,"回调：" + h264Segment.length);
                     outputStream.write(h264Segment);
+                    if (mCameraDataCallback != null){
+                        mCameraDataCallback.onH264DataFrame(h264Segment,width,height,seq_no0);
+                    }
                     H264Decoder.getInstance().handleH264(h264Segment);
                     break;
             }
@@ -225,5 +232,13 @@ public class Client{
             }*/
         }
     }
+    private CameraDataCallback mCameraDataCallback;
 
+    public void setCameraDataCallback(CameraDataCallback cameraCallback) {
+        this.mCameraDataCallback = cameraCallback;
+    }
+
+    public interface CameraDataCallback {
+        void onH264DataFrame(byte[] h264, int width, int height,long seq_no);
+    }
 }

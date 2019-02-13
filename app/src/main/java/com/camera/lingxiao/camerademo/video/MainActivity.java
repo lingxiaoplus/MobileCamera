@@ -1,4 +1,4 @@
-package com.camera.lingxiao.camerademo;
+package com.camera.lingxiao.camerademo.video;
 
 import android.content.Intent;
 import android.hardware.Camera;
@@ -14,6 +14,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.camera.lingxiao.camerademo.BaseActivity;
+import com.camera.lingxiao.camerademo.R;
 import com.camera.lingxiao.camerademo.crash.ContentValue;
 import com.camera.lingxiao.camerademo.utils.MediaUtil;
 import com.media.lingxiao.harddecoder.widget.CameraView;

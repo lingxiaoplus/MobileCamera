@@ -3,29 +3,21 @@ package com.camera.lingxiao.camerademo;
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
+import com.camera.lingxiao.camerademo.audio.AudioActivity;
 import com.camera.lingxiao.camerademo.crash.ContentValue;
-import com.camera.lingxiao.camerademo.utils.FileUtil;
-import com.media.lingxiao.harddecoder.EncoderParams;
-import com.media.lingxiao.harddecoder.decoder.AudioDecoder;
-import com.media.lingxiao.harddecoder.utils.AudioUtil;
+import com.camera.lingxiao.camerademo.video.MainActivity;
+import com.camera.lingxiao.camerademo.video.MediaExtractActivity;
+import com.camera.lingxiao.camerademo.video.PlayActivity;
+import com.camera.lingxiao.camerademo.video.VideoListActivity;
 
 import java.io.File;
-import java.util.List;
 
 import androidx.appcompat.app.AlertDialog;
 import butterknife.BindView;
 import butterknife.OnClick;
-import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.Observer;
-import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.schedulers.Schedulers;
 import pub.devrel.easypermissions.EasyPermissions;
 
 public class SplashActivity extends BaseActivity{
