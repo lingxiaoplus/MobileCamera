@@ -37,6 +37,18 @@
         <activity android:name=".audio.AudioActivity" />
         <activity android:name=".BaseActivity" />
         <activity android:name=".video.VideoListActivity"></activity>
+        <activity android:name=".SystemCameraActivity"></activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileProvider"
+            android:grantUriPermissions="true"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

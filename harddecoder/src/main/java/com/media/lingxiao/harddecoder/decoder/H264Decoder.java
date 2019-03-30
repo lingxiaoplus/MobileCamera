@@ -228,7 +228,6 @@ public class H264Decoder {
                 try {
                     MediaExtractor videoExtractor = new MediaExtractor(); //MediaExtractor作用是将音频和视频的数据进行分离
                     videoExtractor.setDataSource(MPEG_4_Path);
-
                     int videoTrackIndex = -1; //提供音频的音频轨
                     //多媒体流中video轨和audio轨的总个数
                     for (int i = 0; i < videoExtractor.getTrackCount(); i++) {
@@ -243,6 +242,7 @@ public class H264Decoder {
                             try {
                                 mCodec = MediaCodec.createDecoderByType(mime);
                                 mCodec.configure(format, mSurface, null, 0);
+                                mCodec.start();
                                 if (mVideoCallBack != null){
                                     mVideoCallBack.onGetVideoInfo(width,height,time);
                                 }
@@ -252,16 +252,10 @@ public class H264Decoder {
                             break;
                         }
                     }
-                    if (mCodec == null) {
-                        Log.d(TAG, "video decoder is unexpectedly null");
-                        return;
-                    }
-                    mCodec.start();
 
                     MediaCodec.BufferInfo videoBufferInfo = new MediaCodec.BufferInfo();
                     long startTimeStamp = System.currentTimeMillis(); //记录开始解码的时间
                     while (isDecoding){
-                        // 暂停
                         if (isPause) {
                             continue;
                         }
@@ -311,14 +305,12 @@ public class H264Decoder {
      * @param startMillis
      */
     private void decodeDelay(MediaCodec.BufferInfo bufferInfo, long startMillis) {
-        while (bufferInfo.presentationTimeUs / 1000 > System.currentTimeMillis() - startMillis) {
+        long current = bufferInfo.presentationTimeUs / 1000 - (System.currentTimeMillis() - startMillis);
+        if (current > 0) {
             try {
-                long current = bufferInfo.presentationTimeUs / 1000 - (System.currentTimeMillis() - startMillis);
-                //Log.d(TAG, "decodeDelay: " + current + "ms");
                 Thread.sleep(current);
             } catch (InterruptedException e) {
                 e.printStackTrace();
-                break;
             }
         }
     }

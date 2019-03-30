@@ -48,7 +48,7 @@ public class SplashActivity extends BaseActivity{
         methodRequiresTwoPermission();
     }
 
-    @OnClick({R.id.button_extractor,R.id.button_camera,R.id.button_audio})
+    @OnClick({R.id.button_extractor,R.id.button_camera,R.id.button_audio,R.id.button_system_camera})
     public void onClick(View v) {
         switch (v.getId()) {
             default:
@@ -61,6 +61,9 @@ public class SplashActivity extends BaseActivity{
                 break;
             case R.id.button_audio:
                 startActivity(new Intent(getApplicationContext(), AudioActivity.class));
+                break;
+            case R.id.button_system_camera:
+                startActivity(new Intent(getApplicationContext(), SystemCameraActivity.class));
                 break;
         }
     }

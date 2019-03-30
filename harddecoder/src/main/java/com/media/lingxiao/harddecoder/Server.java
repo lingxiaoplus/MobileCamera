@@ -31,7 +31,9 @@ public class Server{
 
     public Server() {
         acceptor = new NioSocketAcceptor();
+        //消息的处理交给handler
         acceptor.setHandler(new StreamHandler());
+        //获取所有的拦截器之后添加一个新的拦截器 ProtocolCodecFilter 用于二进制和对象之间的转化
         acceptor.getFilterChain().addLast("tlv",
                 new ProtocolCodecFilter(new TLVCodecFactory()));
     }
@@ -47,9 +49,11 @@ public class Server{
         this.config = _config;
         if(config.heartBeatInterval > 0) {
             // 发送空闲需要加心跳
-            acceptor.getSessionConfig().setIdleTime(IdleStatus.WRITER_IDLE, config.heartBeatInterval);
+            //acceptor.getSessionConfig().setIdleTime(IdleStatus.WRITER_IDLE, config.heartBeatInterval);
             // 接收空闲判断连接是否已断开了
-            acceptor.getSessionConfig().setIdleTime(IdleStatus.READER_IDLE, config.heartBeatInterval);
+            //acceptor.getSessionConfig().setIdleTime(IdleStatus.READER_IDLE, config.heartBeatInterval);
+            //等同于上面两个，等5秒进入空闲状态  handler的sessionIdle会收到消息
+            acceptor.getSessionConfig().setIdleTime(IdleStatus.BOTH_IDLE,config.heartBeatInterval);
         }
 
         try {
