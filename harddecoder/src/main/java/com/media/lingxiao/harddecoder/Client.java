@@ -32,10 +32,41 @@ public class Client{
 
     private NioSocketConnector streamConnection;
     private IoSession configSession, streamSession;
-    private boolean playing,streamConnected;
     private String mIp;
     private int mPort;
     private static final String TAG = Client.class.getSimpleName();
+    private volatile State m_state = State.NotInitialize;
+    public enum State{
+        /**
+         * new了，还未Initialize
+         */
+        NotInitialize,
+        /**
+         * 未连接(或第一次连接未成功)
+         */
+        NotConnected,
+        /**
+         * 重连中(第一次连接成功后网络异常，正在尝试重连)
+         */
+        ReConnecting,
+        /**
+         * 已断开(第一次连接成功后网络异常，已经断开)
+         */
+        Disconnect,
+        /**
+         * 已连接
+         */
+        Connected,
+        /**
+         * 已断开(手动操作)
+         */
+        Disconnected,
+        /**
+         * 已卸载
+         */
+        UnInitialized
+    }
+
     public Client(String ip,int port){
         this.mIp = ip;
         this.mPort = port;
@@ -45,34 +76,51 @@ public class Client{
         streamConnection.getFilterChain().addLast("tlv", codecFilter);
         streamConnection.setHandler(new StreamClientHandler());
         streamConnection.getSessionConfig().setIdleTime(IdleStatus.WRITER_IDLE, 5); // 10秒未发出数据的话要发心跳
-        //streamConnection.addListener(new StreamAutoReconnectHandler());   //断线重连
+        streamConnection.addListener(new StreamAutoReconnectHandler());   //断线重连
         streamConnection.setConnectTimeoutMillis(5000);
+        m_state = State.NotConnected;
     }
 
-    public void play(SurfaceHolder holder,int w,int h){
-        H264Decoder.getInstance().play(holder,w,h);
+    public boolean play(SurfaceHolder holder,int w,int h){
+        switch (m_state) {
+            case NotInitialize: // 未初始化，返回false
+                return false;
+            case ReConnecting: // 正在重连，返回false
+                return false;
+            case Connected: // 已经连上，返回true
+                return true;
+            case UnInitialized: // 已经卸载，返回false
+                return false;
+            default:
+                break;
+        }
         streamConnection.setDefaultRemoteAddress(new InetSocketAddress(mIp, mPort));
         ConnectFuture future = streamConnection.connect();
         future.awaitUninterruptibly();
         if (!future.isConnected()){
             Log.i(TAG,"视频端口未连接:");
-            return;
+            return false;
         }
         streamSession = future.getSession();
         Log.i(TAG,"视频端口连接:" + streamSession);
-        streamConnected = streamSession != null;
-        playing = true;
-        createFilePath();
+        if (streamSession == null){
+            m_state = State.ReConnecting; // 如果连接未成功，则设备进入自动重连状态
+        }else {
+            m_state = State.Connected;
+        }
+        H264Decoder.getInstance().play(holder,w,h);
+        //createFilePath();
+        return streamSession != null;
     }
 
     public void stopPlay(){
         H264Decoder.getInstance().stop();
-        if(!streamConnected){
+        if(m_state != State.Connected){
             return;
         }
         try {
             streamSession.closeNow();
-            streamConnected = false;
+            m_state = State.UnInitialized;
         } catch(Exception ex) {
             ex.printStackTrace();
         }
@@ -142,7 +190,7 @@ public class Client{
                     byte[] h264Segment = new byte[bufferSize];
                     buffer.get(h264Segment);
                     Log.i(TAG,"回调：" + h264Segment.length);
-                    outputStream.write(h264Segment);
+                    //outputStream.write(h264Segment);
                     if (mCameraDataCallback != null){
                         mCameraDataCallback.onH264DataFrame(h264Segment,width,height,seq_no0);
                     }
@@ -175,7 +223,7 @@ public class Client{
     /**
      * 配置连接断线重连
      */
-    private final class ConfigAutoReconnectHandler implements IoServiceListener {
+    private final class StreamAutoReconnectHandler implements IoServiceListener {
 
         @Override
         public void serviceActivated(IoService ioService) throws Exception {
@@ -204,32 +252,26 @@ public class Client{
 
         @Override
         public void sessionDestroyed(IoSession ioSession) throws Exception {
-            /*if(m_state == State.Connected) {
-                m_state = State.ReConnecting;
-                if(FaceCamera.this.connectedStateChangedEventHandler != null)
-                    FaceCamera.this.connectedStateChangedEventHandler.onConnectedStateChanged(false);
-            }
             // 需要重连
-            while(m_state == State.ReConnecting) {
+            while(m_state == State.Connected || m_state == State.ReConnecting) {
                 try {
-                    ConnectFuture future = configConnection.connect();
+                    ConnectFuture future = streamConnection.connect();
                     future.awaitUninterruptibly();// 等待连接创建成功
-                    configSession = future.getSession();// 获取会话
-                    if(m_state != State.ReConnecting) {
-                        configSession.closeNow();
+                    streamSession = future.getSession();// 获取会话
+                    if(m_state != State.Connected && m_state != State.ReConnecting) {
+                        Log.i(TAG,"不需要断线重连");
+                        streamSession.closeNow();
                         break;
                     }
-                    if (configSession != null) {
-                        if(FaceCamera.this.connectedStateChangedEventHandler != null)
-                            FaceCamera.this.connectedStateChangedEventHandler.onConnectedStateChanged(true);
-                        configConnected = true;
+                    if (streamSession != null) {
                         m_state = State.Connected;
                         break;
                     }
+                    Log.i(TAG,"断线重连");
                 } catch (Exception ex) {
-
+                    ex.printStackTrace();
                 }
-            }*/
+            }
         }
     }
     private CameraDataCallback mCameraDataCallback;
