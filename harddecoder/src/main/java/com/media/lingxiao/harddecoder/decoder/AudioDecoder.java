@@ -208,7 +208,6 @@ public class AudioDecoder {
                     audioExtractor.setDataSource(MPEG_4_Path);
                     AudioTrack audioTrack = null;
                     int audioExtractorTrackIndex = -1; //提供音频的音频轨
-                    int audioMaxInputSize = 0; //能获取的音频的最大值
                     //多媒体流中video轨和audio轨的总个数
                     for (int i = 0; i < audioExtractor.getTrackCount(); i++) {
                         MediaFormat format = audioExtractor.getTrackFormat(i);
@@ -221,10 +220,6 @@ public class AudioDecoder {
                             int minBufferSize = AudioTrack.getMinBufferSize(audioSampleRate,
                                     (audioChannels == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO),
                                     AudioFormat.ENCODING_PCM_16BIT);
-                            //int maxInputSize = format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
-                            //audioMaxInputSize = minBufferSize > 0 ? minBufferSize * 4 : maxInputSize;
-                            //int frameSizeInBytes = audioChannels * 2;
-                            //audioMaxInputSize = (audioMaxInputSize / frameSizeInBytes) * frameSizeInBytes;
                             audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
                                     audioSampleRate,
                                     (audioChannels == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO),
@@ -235,17 +230,13 @@ public class AudioDecoder {
                             try {
                                 mCodec = MediaCodec.createDecoderByType(mime);
                                 mCodec.configure(format, null, null, 0);
+                                mCodec.start();
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
                             break;
                         }
                     }
-                    if (mCodec == null) {
-                        Log.d(TAG, "audio decoder is unexpectedly null");
-                        return;
-                    }
-                    mCodec.start();
 
                     MediaCodec.BufferInfo audioBufferInfo = new MediaCodec.BufferInfo();
                     ByteBuffer[] inputBuffers = mCodec.getInputBuffers();

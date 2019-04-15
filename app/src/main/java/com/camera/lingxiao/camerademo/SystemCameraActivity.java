@@ -2,6 +2,7 @@ package com.camera.lingxiao.camerademo;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -59,7 +60,8 @@ public class SystemCameraActivity extends AppCompatActivity {
                 Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {  //如果是7.0以上，使用FileProvider，否则会报错
                     intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    Uri imgUri = FileProvider.getUriForFile(getApplicationContext(), "com.camera.lingxiao.camerademo.fileProvider", it);
+                    String authority = getApplicationInfo().packageName + ".fileProvider";
+                    Uri imgUri = FileProvider.getUriForFile(getApplicationContext(), authority, it);
                     intent.putExtra(MediaStore.EXTRA_OUTPUT, imgUri); //设置拍照后图片保存的位置
                 } else {
                     intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(it)); //设置拍照后图片保存的位置
@@ -77,8 +79,9 @@ public class SystemCameraActivity extends AppCompatActivity {
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == 200) {
                 Toast.makeText(this, "拍照成功", Toast.LENGTH_SHORT).show();
+                String authority = getApplicationInfo().packageName + ".fileProvider";
                 Uri imgUri = FileProvider.getUriForFile(getApplicationContext(),
-                        "com.camera.lingxiao.camerademo.fileProvider", it);
+                        authority, it);
                 gotoCrop(imgUri);
             } else if (requestCode == 201) {
                 Bitmap bitmap = BitmapFactory.decodeFile(it.getAbsolutePath());

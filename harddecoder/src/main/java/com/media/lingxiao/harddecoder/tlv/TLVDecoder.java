@@ -14,7 +14,7 @@ import java.nio.ByteOrder;
 public final class TLVDecoder extends CumulativeProtocolDecoder {
     @Override
     protected boolean doDecode(IoSession session, IoBuffer in, ProtocolDecoderOutput out) throws Exception {
-        if (in.remaining() >= 8) { // 前8字节是包头+长度
+        if (in.remaining() >= 8) { // 前8字节是包头+长度 两个都是int 所以是8
             // 标记当前position的快照标记mark，以便后继的reset操作能恢复position位置
             in.mark();
 
