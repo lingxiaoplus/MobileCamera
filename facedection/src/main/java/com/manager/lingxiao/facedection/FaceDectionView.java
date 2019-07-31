@@ -1,4 +1,4 @@
-package com.media.lingxiao.harddecoder.widget;
+package com.manager.lingxiao.facedection;
 
 import android.app.Activity;
 import android.content.Context;
@@ -31,7 +31,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-public class CameraView extends TextureView implements TextureView.SurfaceTextureListener,
+
+public class FaceDectionView extends TextureView implements TextureView.SurfaceTextureListener,
         H264EncoderConsumer.H264FrameListener,
         AudioEncoder.AudioEncodeListener {
     private int frameWidth;
@@ -49,22 +50,22 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
     private Context mContext;
     private SurfaceTexture mTexture;
 
-    private static final String TAG = CameraView.class.getSimpleName();
+    private static final String TAG = FaceDectionView.class.getSimpleName();
     private boolean isRecoder = false;  //是否正在录制
     private CameraHandlerThread mCameraHandlerThread;
     private final Object mCaptureSync = new Object();
     private boolean mCaptureStillImage;
     private Bitmap mCaptureBitmap;
 
-    public CameraView(Context context) {
+    public FaceDectionView(Context context) {
         this(context, null);
     }
 
-    public CameraView(Context context, AttributeSet attrs) {
+    public FaceDectionView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public CameraView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public FaceDectionView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         // 获取用户配置属性
         TypedArray tyArry = context.obtainStyledAttributes(attrs, R.styleable.CameraView);
@@ -209,7 +210,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                 @Override
                 public void run() {
                     //post()执行会立即返回，而Runnable()会异步执行，可能在执行post()后立即使用mCamera时仍为null 所以用notify-wait
-                    CameraView.this.openCamera(width, height, texture, rotation);
+                    FaceDectionView.this.openCamera(width, height, texture, rotation);
                     notifyCameraOpen();
                 }
             });
@@ -283,7 +284,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
                             YuvUtil.NV21RotateAndMirrorConvertToNv12(datas, yuvData, frameWidth, frameHeight, mOrienta);
                         }
                     }
-                    synchronized (CameraView.class) {
+                    synchronized (FaceDectionView.class) {
                         if (null != mCameraDataCallback) {
                             mCameraDataCallback.onYuvDataFrame(yuvData, camera);
                         }
@@ -579,7 +580,7 @@ public class CameraView extends TextureView implements TextureView.SurfaceTextur
         mCamera.takePicture(null, null, new Camera.PictureCallback() {
             @Override
             public void onPictureTaken(final byte[] data, Camera camera) {
-                CameraView.this.post(new Runnable() {
+                FaceDectionView.this.post(new Runnable() {
                     @Override
                     public void run() {
                         File file = null;

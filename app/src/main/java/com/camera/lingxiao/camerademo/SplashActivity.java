@@ -8,6 +8,7 @@ import android.widget.Button;
 
 import com.camera.lingxiao.camerademo.audio.AudioActivity;
 import com.camera.lingxiao.camerademo.crash.ContentValue;
+import com.camera.lingxiao.camerademo.video.Camera2Activity;
 import com.camera.lingxiao.camerademo.video.MainActivity;
 import com.camera.lingxiao.camerademo.video.MediaExtractActivity;
 import com.camera.lingxiao.camerademo.video.PlayActivity;
@@ -48,7 +49,7 @@ public class SplashActivity extends BaseActivity{
         methodRequiresTwoPermission();
     }
 
-    @OnClick({R.id.button_extractor,R.id.button_camera,R.id.button_audio,R.id.button_system_camera})
+    @OnClick({R.id.button_extractor,R.id.button_camera,R.id.button_audio,R.id.button_system_camera,R.id.button_camera2})
     public void onClick(View v) {
         switch (v.getId()) {
             default:
@@ -64,6 +65,9 @@ public class SplashActivity extends BaseActivity{
                 break;
             case R.id.button_system_camera:
                 startActivity(new Intent(getApplicationContext(), SystemCameraActivity.class));
+                break;
+            case R.id.button_camera2:
+                startActivity(new Intent(getApplicationContext(), Camera2Activity.class));
                 break;
         }
     }

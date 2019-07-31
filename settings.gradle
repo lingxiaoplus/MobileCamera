@@ -1,1 +1,8 @@
-include ':app', ':harddecoder', ':minaclient'
+rootProject.name = 'MobileCamera'
+def opencvsdk='../' + rootProject.name
+//很多cmake的文件里写死了module的名字为sdk，所以这里重命名一下
+//println opencvsdk
+include ':opencv'
+project(':opencv').projectDir = new File(opencvsdk + '/sdk')
+println("opencv  path " + project(':opencv').projectDir)
+include ':app', ':harddecoder', ':minaclient', ':facedection'
